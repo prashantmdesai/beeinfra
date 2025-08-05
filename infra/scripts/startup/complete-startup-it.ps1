@@ -2,12 +2,23 @@
 
 <#
 .SYNOPSIS
-    Complete startup and provisioning of IT environment resources from zero state.
+    Complete startup and provisioning of IT environment resources using Terraform.
 
 .DESCRIPTION
     This script implements the complete IT environment startup process as defined in 
-    infrasetup.instructions.md requirements. It provisions all necessary Azure resources
-    for a cost-optimized development environment while maintaining essential security features.
+    infrasetup.instructions.md requirements using Terraform for infrastructure deployment
+    instead of Azure Bicep. The migration to Terraform provides enhanced state management,
+    better dependency tracking, and improved infrastructure lifecycle management.
+
+    MIGRATION FROM BICEP TO TERRAFORM:
+    ==================================
+    This script now uses Terraform to deploy the same infrastructure previously deployed
+    with Azure Bicep templates, providing:
+    - Better state management and drift detection  
+    - Enhanced module composition and reusability
+    - Improved dependency management and parallel execution
+    - Cross-cloud compatibility for future expansion
+    - Better variable validation and type safety
 
     KEY FEATURES AND COMPLIANCE:
     ============================
@@ -33,6 +44,16 @@
     ✅ Auto-shutdown after 1 hour idle
     ✅ Developer VM (Ubuntu 22.04 with development tools)
     
+    TERRAFORM DEPLOYMENT ADVANTAGES:
+    ===============================
+    ✅ Infrastructure state tracking and drift detection
+    ✅ Parallel resource provisioning for faster deployment
+    ✅ Enhanced dependency management
+    ✅ Better error handling and rollback capabilities
+    ✅ Modular architecture for code reusability
+    ✅ Type-safe variable validation
+    ✅ Cross-cloud compatibility for future requirements
+    
     COST OPTIMIZATION STRATEGY:
     ===========================
     ❌ No advanced security services (WAF, DDoS protection, private endpoints)
@@ -47,6 +68,9 @@
 
 .PARAMETER Force
     Skip confirmation prompts and use default values
+
+.PARAMETER SkipTerraformValidation
+    Skip Terraform plan validation (not recommended for production use)
 
 .EXAMPLE
     .\complete-startup-it.ps1
@@ -119,21 +143,28 @@ if (-not $account) {
 Write-Host "✅ Authenticated as: $($account.user.name)" -ForegroundColor Green
 Write-Host "📋 Subscription: $($account.name) ($($account.id))" -ForegroundColor Yellow
 
-# Check if AZD is available
-Write-Host "🔍 Checking Azure Developer CLI..." -ForegroundColor Cyan
-$azdVersion = azd version 2>$null
-if (-not $azdVersion) {
-    Write-Host "❌ Azure Developer CLI not found. Please install azd first." -ForegroundColor Red
-    Write-Host "💡 Install with: winget install microsoft.azd" -ForegroundColor Cyan
+# Check if Terraform is available
+Write-Host "🔍 Checking Terraform..." -ForegroundColor Cyan
+$terraformVersion = terraform version 2>$null
+if (-not $terraformVersion) {
+    Write-Host "❌ Terraform not found. Please install Terraform first." -ForegroundColor Red
+    Write-Host "💡 Install from: https://www.terraform.io/downloads.html" -ForegroundColor Cyan
     exit 1
 }
-Write-Host "✅ Azure Developer CLI available" -ForegroundColor Green
+Write-Host "✅ Terraform available: $($terraformVersion[0])" -ForegroundColor Green
 
-# Step 1: Set up AZD environment
-Write-Host "1️⃣ Setting up AZD environment..." -ForegroundColor Yellow
+# Step 1: Navigate to IT environment directory
+Write-Host "1️⃣ Setting up Terraform environment..." -ForegroundColor Yellow
 
-# Check if IT environment already exists
-$existingEnv = azd env list --output json 2>$null | ConvertFrom-Json | Where-Object { $_.Name -eq "it" }
+$terraformPath = "terraform\environments\it"
+if (-not (Test-Path $terraformPath)) {
+    Write-Host "❌ Terraform IT environment directory not found: $terraformPath" -ForegroundColor Red
+    exit 1
+}
+
+$originalPath = Get-Location
+Set-Location $terraformPath
+Write-Host "   📁 Changed to IT environment directory: $terraformPath" -ForegroundColor Gray
 if ($existingEnv) {
     Write-Host "   📋 IT environment already exists, selecting it..." -ForegroundColor Gray
     azd env select it

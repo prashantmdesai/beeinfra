@@ -93,3 +93,6 @@ azd up
 
 # Done
 make sure all instructions mentioned in the infrasetup.instructions.md are followed throughout this project
+
+# Done
+in this project, we used 'Azure Biceps' to setup the infrastructure, we want to change that to be 'Terraform' henceforth. This is applicable for all the environments. Please make necessary changes to the documentation, code, code comments, scripts and any other artifacts in this application.

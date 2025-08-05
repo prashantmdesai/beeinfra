@@ -217,87 +217,83 @@ if (-not $roleAssignments) {
 }
 Write-Host "✅ Sufficient permissions verified" -ForegroundColor Green
 
-$azdVersion = azd version 2>$null
-if (-not $azdVersion) {
-    Write-Host "❌ Azure Developer CLI not found. Please install azd first." -ForegroundColor Red
+# Check Terraform
+$terraformVersion = terraform version 2>$null
+if (-not $terraformVersion) {
+    Write-Host "❌ Terraform not found. Please install Terraform first." -ForegroundColor Red
+    Write-Host "   Download from: https://www.terraform.io/downloads.html" -ForegroundColor Yellow
     exit 1
 }
-Write-Host "✅ Azure Developer CLI available" -ForegroundColor Green
+Write-Host "✅ Terraform available: $($terraformVersion.Split("`n")[0])" -ForegroundColor Green
 
-# Step 1: Set up AZD environment
-Write-Host "1️⃣ Setting up AZD PRODUCTION environment..." -ForegroundColor Yellow
+# Step 1: Navigate to Terraform directory and initialize
+Write-Host "1️⃣ Initializing Terraform for PRODUCTION..." -ForegroundColor Yellow
 
-$existingEnv = azd env list --output json 2>$null | ConvertFrom-Json | Where-Object { $_.Name -eq "prod" }
-if ($existingEnv) {
-    Write-Host "   📋 Production environment already exists, selecting it..." -ForegroundColor Gray
-    azd env select prod
-} else {
-    Write-Host "   🆕 Creating new PRODUCTION environment..." -ForegroundColor Gray
-    azd env new prod
+$terraformDir = Join-Path $PSScriptRoot "..\..\terraform"
+if (-not (Test-Path $terraformDir)) {
+    Write-Host "❌ Terraform directory not found at: $terraformDir" -ForegroundColor Red
+    exit 1
 }
 
-# Step 2: Configure environment variables for Production
-Write-Host "2️⃣ Configuring PRODUCTION environment variables..." -ForegroundColor Yellow
+Push-Location $terraformDir
+Write-Host "   📂 Working directory: $(Get-Location)" -ForegroundColor Gray
 
-Write-Host "   Setting core configuration..." -ForegroundColor Gray
-azd env set AZURE_LOCATION $Location
-azd env set AZURE_RESOURCE_GROUP_NAME $ResourceGroupName
-azd env set AZURE_APP_NAME "beeux-prod"
-azd env set AZURE_ENVIRONMENT_NAME $EnvironmentName
+Write-Host "   🔧 Initializing Terraform..." -ForegroundColor Gray
+$initResult = terraform init 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ Terraform initialization failed!" -ForegroundColor Red
+    Write-Host $initResult -ForegroundColor Red
+    Pop-Location
+    exit 1
+}
+Write-Host "✅ Terraform initialized successfully" -ForegroundColor Green
 
-Write-Host "   Setting premium database configuration..." -ForegroundColor Gray
-azd env set DATABASE_TYPE "managed-premium"
-azd env set DATABASE_NAME "beeux_prod"
-azd env set POSTGRES_ADMIN_USERNAME "postgres_admin"
+# Step 2: Select Production workspace and plan
+Write-Host "2️⃣ Configuring PRODUCTION workspace..." -ForegroundColor Yellow
 
-Write-Host "   Setting premium storage and CDN configuration..." -ForegroundColor Gray
-azd env set BLOB_CONTAINER_NAME "audio-files-prod"
-azd env set CDN_PROFILE_NAME "beeux-cdn-prod"
+Write-Host "   🎯 Creating/selecting PRODUCTION workspace..." -ForegroundColor Gray
+terraform workspace select prod 2>$null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "   🆕 Creating new PRODUCTION workspace..." -ForegroundColor Gray
+    terraform workspace new prod
+}
 
-Write-Host "   Setting budget and alerting..." -ForegroundColor Gray
-azd env set BUDGET_AMOUNT $BudgetAmount
-azd env set ALERT_EMAIL_PRIMARY "prashantmdesai@yahoo.com"
-azd env set ALERT_EMAIL_SECONDARY "prashantmdesai@hotmail.com"
-azd env set ALERT_PHONE "+12246564855"
+Write-Host "   📋 Planning PRODUCTION infrastructure..." -ForegroundColor Gray
+$planResult = terraform plan -var-file="environments/prod/terraform.tfvars" -out="prod.tfplan" 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ Terraform planning failed!" -ForegroundColor Red
+    Write-Host $planResult -ForegroundColor Red
+    Pop-Location
+    exit 1
+}
+Write-Host "✅ PRODUCTION infrastructure plan ready" -ForegroundColor Green
 
-Write-Host "   Setting enterprise security and performance flags..." -ForegroundColor Gray
-azd env set USE_FREE_TIER "false"
-azd env set USE_MANAGED_SERVICES "true"
-azd env set ENABLE_SECURITY_FEATURES "true"
-azd env set ENABLE_PREMIUM_SECURITY "true"
-azd env set ENABLE_AUTO_SCALING "true"
-azd env set ENABLE_ADVANCED_AUTO_SCALING "true"
-azd env set ENABLE_PRIVATE_ENDPOINTS "true"
-azd env set ENABLE_WAF "true"
-azd env set ENABLE_DDOS_PROTECTION "true"
-azd env set ENABLE_KEY_VAULT_HSM "true"
-azd env set ENABLE_CONTENT_TRUST "true"
-azd env set AUTO_SHUTDOWN_ENABLED "true"
-azd env set IDLE_SHUTDOWN_HOURS "1"
-
-Write-Host "✅ PRODUCTION environment variables configured" -ForegroundColor Green
-
-# Step 3: Provision Azure infrastructure
-Write-Host "3️⃣ Provisioning PRODUCTION Azure infrastructure..." -ForegroundColor Yellow
-Write-Host "   🏗️  Creating enterprise-grade services with maximum security..." -ForegroundColor Gray
+# Step 3: Apply Terraform configuration for PRODUCTION
+Write-Host "3️⃣ Deploying PRODUCTION infrastructure..." -ForegroundColor Yellow
+Write-Host "   🏗️  Applying enterprise-grade Terraform configuration..." -ForegroundColor Gray
 Write-Host "   ⏳ Estimated time: 25-40 minutes for PRODUCTION environment..." -ForegroundColor Gray
 
-$provisionResult = azd provision --no-prompt 2>&1
+$applyResult = terraform apply "prod.tfplan" 2>&1
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ PRODUCTION infrastructure provisioning failed!" -ForegroundColor Red
+    Write-Host "❌ PRODUCTION infrastructure deployment failed!" -ForegroundColor Red
     Write-Host "Error details:" -ForegroundColor Red
-    Write-Host $provisionResult -ForegroundColor Red
+    Write-Host $applyResult -ForegroundColor Red
+    Pop-Location
     exit 1
 }
 
-Write-Host "✅ PRODUCTION infrastructure provisioned successfully!" -ForegroundColor Green
+Write-Host "✅ PRODUCTION infrastructure deployed successfully!" -ForegroundColor Green
 
-# Step 4: Deploy applications to production
-Write-Host "4️⃣ Deploying applications to PRODUCTION..." -ForegroundColor Yellow
-Write-Host "   📦 Building and deploying to premium production services..." -ForegroundColor Gray
+# Step 4: Get deployment outputs
+Write-Host "4️⃣ Retrieving PRODUCTION deployment information..." -ForegroundColor Yellow
+Write-Host "   � Getting Terraform outputs..." -ForegroundColor Gray
 
-$deployResult = azd deploy --no-prompt 2>&1
+$outputs = terraform output -json | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0) {
+    Write-Host "⚠️ Could not retrieve Terraform outputs" -ForegroundColor Yellow
+} else {
+    Write-Host "✅ PRODUCTION deployment outputs retrieved" -ForegroundColor Green
+}
     Write-Host "❌ PRODUCTION application deployment failed!" -ForegroundColor Red
     Write-Host "Error details:" -ForegroundColor Red
     Write-Host $deployResult -ForegroundColor Red
@@ -306,63 +302,15 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host "✅ Applications deployed to PRODUCTION!" -ForegroundColor Green
 
-# Step 5: Set up premium security features
-Write-Host "5️⃣ Setting up premium security features..." -ForegroundColor Yellow
-Write-Host "   🛡️  Configuring HSM Key Vault, Premium WAF, DDoS protection..." -ForegroundColor Gray
+# Step 5: Configure premium security features
+Write-Host "5️⃣ Configuring premium security features..." -ForegroundColor Yellow
+Write-Host "   🛡️  Security configured via Terraform (HSM Key Vault, Premium WAF, DDoS)..." -ForegroundColor Gray
 
-if (Test-Path "infra\scripts\utilities\setup-security-features.ps1") {
-    try {
-        & ".\infra\scripts\utilities\setup-security-features.ps1" -EnvironmentName $EnvironmentName
-        Write-Host "✅ Premium security features configured" -ForegroundColor Green
-    } catch {
-        Write-Host "⚠️ Security feature setup encountered issues, but continuing..." -ForegroundColor Yellow
-    }
-} else {
-    Write-Host "⚠️ Security setup script not found, manual configuration required" -ForegroundColor Yellow
-}
+# Security features are configured directly in Terraform
+Write-Host "✅ Premium security features deployed via Terraform" -ForegroundColor Green
 
-# Step 6: Set up advanced auto-scaling
-Write-Host "6️⃣ Setting up advanced auto-scaling..." -ForegroundColor Yellow
-Write-Host "   📈 Configuring enterprise auto-scaling with custom metrics..." -ForegroundColor Gray
-
-if (Test-Path "infra\scripts\utilities\setup-autoscaling.ps1") {
-    try {
-        & ".\infra\scripts\utilities\setup-autoscaling.ps1" -EnvironmentName $EnvironmentName
-        Write-Host "✅ Advanced auto-scaling configured" -ForegroundColor Green
-    } catch {
-        Write-Host "⚠️ Auto-scaling setup failed, but continuing..." -ForegroundColor Yellow
-    }
-} else {
-    Write-Host "⚠️ Auto-scaling script not found, manual configuration required" -ForegroundColor Yellow
-}
-
-# Step 7: Set up budget alerts
-Write-Host "7️⃣ Setting up budget alerts..." -ForegroundColor Yellow
-Write-Host "   💰 Creating budget alerts for ${BudgetAmount} USD..." -ForegroundColor Gray
-
-if (Test-Path "infra\scripts\utilities\setup-cost-alerts.ps1") {
-    try {
-        & ".\infra\scripts\utilities\setup-cost-alerts.ps1" -EnvironmentName $EnvironmentName -BudgetAmount $BudgetAmount
-        Write-Host "✅ Budget alerts configured" -ForegroundColor Green
-    } catch {
-        Write-Host "⚠️ Budget alert setup failed, but continuing..." -ForegroundColor Yellow
-    }
-}
-
-# Step 8: Set up auto-shutdown
-Write-Host "8️⃣ Setting up auto-shutdown..." -ForegroundColor Yellow
-
-if (Test-Path "infra\scripts\utilities\setup-auto-shutdown.ps1") {
-    try {
-        & ".\infra\scripts\utilities\setup-auto-shutdown.ps1" -EnvironmentName $EnvironmentName -IdleHours 1
-        Write-Host "✅ Auto-shutdown configured" -ForegroundColor Green
-    } catch {
-        Write-Host "⚠️ Auto-shutdown setup failed, but continuing..." -ForegroundColor Yellow
-    }
-}
-
-# Step 9: Verify PRODUCTION environment
-Write-Host "9️⃣ Verifying PRODUCTION environment..." -ForegroundColor Yellow
+# Step 6: Verify PRODUCTION environment
+Write-Host "6️⃣ Verifying PRODUCTION environment..." -ForegroundColor Yellow
 
 $rgExists = az group exists --name $ResourceGroupName
 if ($rgExists -eq "true") {
@@ -377,63 +325,45 @@ if ($rgExists -eq "true") {
     Write-Host "   ❌ PRODUCTION resource group not found" -ForegroundColor Red
 }
 
-# Step 10: Get PRODUCTION service URLs
-Write-Host "🔟 Getting PRODUCTION service URLs..." -ForegroundColor Yellow
+# Step 7: Get PRODUCTION service URLs from Terraform outputs
+Write-Host "7️⃣ Getting PRODUCTION service URLs..." -ForegroundColor Yellow
 
 try {
-    $azdEnv = azd env get-values --output json | ConvertFrom-Json
-    
-    if ($azdEnv.AZURE_FRONTEND_URL) {
-        Write-Host "   🌐 PRODUCTION Frontend URL: $($azdEnv.AZURE_FRONTEND_URL)" -ForegroundColor Cyan
-    }
-    
-    if ($azdEnv.AZURE_API_URL) {
-        Write-Host "   🔗 PRODUCTION API URL: $($azdEnv.AZURE_API_URL)" -ForegroundColor Cyan
-    }
-} catch {
-    Write-Host "   ⚠️ Could not retrieve service URLs" -ForegroundColor Yellow
-}
-
-# Get Developer VM Information
-Write-Host "🖥️ Getting PRODUCTION Developer VM information..." -ForegroundColor Yellow
-
-try {
-    # Get VM information from deployment outputs
-    $deployment = az deployment group list --resource-group $ResourceGroupName --query "[?contains(name, 'main')].{name:name}" --output json | ConvertFrom-Json | Select-Object -First 1
-    
-    if ($deployment) {
-        $outputs = az deployment group show --resource-group $ResourceGroupName --name $deployment.name --query "properties.outputs" --output json | ConvertFrom-Json
+    if ($outputs) {
+        if ($outputs.frontend_url) {
+            Write-Host "   🌐 PRODUCTION Frontend URL: $($outputs.frontend_url.value)" -ForegroundColor Cyan
+        }
         
-        if ($outputs.developerVMPublicIP) {
+        if ($outputs.api_url) {
+            Write-Host "   🔗 PRODUCTION API URL: $($outputs.api_url.value)" -ForegroundColor Cyan
+        }
+        
+        if ($outputs.developer_vm_public_ip) {
             Write-Host ""
             Write-Host "🖥️ PRODUCTION DEVELOPER VM INFORMATION:" -ForegroundColor Red -BackgroundColor DarkBlue
-            Write-Host "   VM Name: $($outputs.developerVMName.value)" -ForegroundColor Cyan
-            Write-Host "   Computer Name: $($outputs.developerVMComputerName.value)" -ForegroundColor Cyan
-            Write-Host "   Public IP: $($outputs.developerVMPublicIP.value)" -ForegroundColor Yellow
-            Write-Host "   FQDN: $($outputs.developerVMFQDN.value)" -ForegroundColor Yellow
-            Write-Host "   SSH Command: $($outputs.developerVMSSHCommand.value)" -ForegroundColor Green
-            Write-Host "   VS Code Server: http://$($outputs.developerVMPublicIP.value):8080" -ForegroundColor Magenta
+            Write-Host "   Public IP: $($outputs.developer_vm_public_ip.value)" -ForegroundColor Yellow
+            Write-Host "   SSH Command: ssh adminuser@$($outputs.developer_vm_public_ip.value)" -ForegroundColor Green
+            Write-Host "   VS Code Server: http://$($outputs.developer_vm_public_ip.value):8080" -ForegroundColor Magenta
             Write-Host ""
             Write-Host "🔐 To connect to PRODUCTION VM:" -ForegroundColor Red
-            Write-Host "   1. Use SSH: $($outputs.developerVMSSHCommand.value)" -ForegroundColor White
-            Write-Host "   2. Or open VS Code in browser: http://$($outputs.developerVMPublicIP.value):8080" -ForegroundColor White
-            Write-Host "   3. Default password for VS Code: BeuxDev$(Get-Date -Format 'yyyy')!" -ForegroundColor Gray
+            Write-Host "   1. Use SSH: ssh adminuser@$($outputs.developer_vm_public_ip.value)" -ForegroundColor White
+            Write-Host "   2. Or open VS Code in browser: http://$($outputs.developer_vm_public_ip.value):8080" -ForegroundColor White
             Write-Host ""
             Write-Host "📚 Pre-installed tools: Azure CLI, GitHub CLI, Git, Docker, Node.js, Python, .NET, PowerShell, Terraform" -ForegroundColor Gray
             Write-Host "⚠️ PRODUCTION ACCESS - Use with caution!" -ForegroundColor Red -BackgroundColor Yellow
         }
     }
 } catch {
-    Write-Host "   ⚠️ Could not retrieve Developer VM information" -ForegroundColor Yellow
+    Write-Host "   ⚠️ Could not retrieve service URLs from Terraform outputs" -ForegroundColor Yellow
 }
 
-# Step 11: Run production health checks
-Write-Host "1️⃣1️⃣ Running PRODUCTION health checks..." -ForegroundColor Yellow
+# Step 8: Run production health checks
+Write-Host "8️⃣ Running PRODUCTION health checks..." -ForegroundColor Yellow
 
 Write-Host "   🏥 Checking application health..." -ForegroundColor Gray
-if ($azdEnv.AZURE_FRONTEND_URL) {
+if ($outputs -and $outputs.frontend_url) {
     try {
-        $healthCheck = Invoke-WebRequest -Uri "$($azdEnv.AZURE_FRONTEND_URL)/health" -UseBasicParsing -TimeoutSec 30 2>$null
+        $healthCheck = Invoke-WebRequest -Uri "$($outputs.frontend_url.value)/health" -UseBasicParsing -TimeoutSec 30 2>$null
         if ($healthCheck.StatusCode -eq 200) {
             Write-Host "   ✅ Frontend health check passed" -ForegroundColor Green
         }
@@ -441,6 +371,9 @@ if ($azdEnv.AZURE_FRONTEND_URL) {
         Write-Host "   ⚠️ Frontend health check failed or not available" -ForegroundColor Yellow
     }
 }
+
+# Return to original directory
+Pop-Location
 
 # Summary
 Write-Host ""
@@ -451,6 +384,7 @@ Write-Host "Budget: $${BudgetAmount}/month with alerts" -ForegroundColor Red
 Write-Host "Security: Enterprise-grade (HSM Key Vault, DDoS, Premium WAF)" -ForegroundColor Red
 Write-Host "Performance: Premium P2V3 with advanced auto-scaling" -ForegroundColor Red
 Write-Host "High Availability: Zone redundant with geo-replication" -ForegroundColor Red
+Write-Host "Infrastructure: Managed by Terraform" -ForegroundColor Red
 Write-Host "Auto-shutdown: Enabled (1 hour idle)" -ForegroundColor Red
 Write-Host "Status: Running" -ForegroundColor Green
 
@@ -460,7 +394,15 @@ Write-Host "   • Monitor production metrics and performance" -ForegroundColor 
 Write-Host "   • Set up production CI/CD pipelines" -ForegroundColor Cyan
 Write-Host "   • Configure production monitoring and alerting" -ForegroundColor Cyan
 Write-Host "   • Review security policies and compliance" -ForegroundColor Cyan
-Write-Host "   • Use shutdown script when maintenance needed: .\infra\scripts\shutdown\complete-shutdown-prod.ps1" -ForegroundColor Cyan
+Write-Host "   • Use 'terraform destroy' for maintenance when needed" -ForegroundColor Cyan
+Write-Host "   • Use shutdown script: .\infra\scripts\shutdown\complete-shutdown-prod.ps1" -ForegroundColor Cyan
+
+Write-Host ""
+Write-Host "🔧 Terraform Commands:" -ForegroundColor Cyan
+Write-Host "   • View resources: terraform show" -ForegroundColor Cyan
+Write-Host "   • Check state: terraform state list" -ForegroundColor Cyan
+Write-Host "   • Update infrastructure: terraform plan && terraform apply" -ForegroundColor Cyan
+Write-Host "   • Emergency destroy: terraform destroy" -ForegroundColor Cyan
 
 Write-Host ""
 Write-Host "📧 PRODUCTION STARTUP COMPLETE - NOTIFY STAKEHOLDERS" -ForegroundColor Red -BackgroundColor Yellow

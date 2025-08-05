@@ -1,0 +1,33 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": {
+      "value": "${AZURE_ENVIRONMENT_NAME}"
+    },
+    "location": {
+      "value": "${AZURE_LOCATION}"
+    },
+    "administratorLogin": {
+      "value": "${POSTGRES_ADMIN_USERNAME}"
+    },
+    "administratorPassword": {
+      "value": "${POSTGRES_ADMIN_PASSWORD}"
+    },
+    "budgetAmount": {
+      "value": "${BUDGET_AMOUNT}"
+    },
+    "alertEmailPrimary": {
+      "value": "${ALERT_EMAIL_PRIMARY}"
+    },
+    "alertEmailSecondary": {
+      "value": "${ALERT_EMAIL_SECONDARY}"
+    },
+    "alertPhone": {
+      "value": "${ALERT_PHONE}"
+    },
+    "sshPublicKey": {
+      "value": "${SSH_PUBLIC_KEY}"
+    }
+  }
+}

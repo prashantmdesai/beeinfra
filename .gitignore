@@ -1,0 +1,74 @@
+# Azure Developer CLI
+.azure/
+.env
+.env.local
+
+# Azure deployment artifacts
+*.zip
+*.tar.gz
+
+# PowerShell execution policies
+*.ps1xml
+
+# VS Code settings (keep project settings, ignore user settings)
+.vscode/settings.json
+.vscode/launch.json
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Log files
+*.log
+logs/
+
+# Compiled binaries
+bin/
+obj/
+dist/
+build/
+
+# Package managers
+node_modules/
+packages/
+*.tgz
+
+# IDE files
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Backup files
+*.bak
+*.backup
+
+# Azure credentials and sensitive data
+*.pem
+*.pfx
+*.p12
+secrets.json
+appsettings.local.json
+
+# Terraform state files (if using Terraform)
+*.tfstate
+*.tfstate.backup
+.terraform/
+terraform.tfvars
+
+# Bicep compiled files
+*.json
+!azure.yaml
+!package.json
+!**/main.parameters.json
+!**/main.tfvars.json
+
+# Local development certificates
+*.crt
+*.key
+localhost.*

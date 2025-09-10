@@ -36,4 +36,4 @@ This document outlines the steps required to set up the infrastructure for the p
 25. all web traffic should always be over HTTPS
 26. Modify relevant infrastructure setup code and scripts such that all web traffic should always be over HTTPS
 27. Make sure there is elaborate documentation throughout the code explaining what the code is doing and why
-28. Use Azure Bicep for all infrastructure as code related activities
+28. Use Terraform for all infrastructure as code related activities

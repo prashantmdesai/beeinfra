@@ -161,7 +161,6 @@ beeinfra/
 │   │       ├── setup-auto-shutdown.ps1        # Auto-shutdown setup
 │   │       ├── setup-autoscaling.ps1          # Autoscaling configuration
 │   │       └── setup-security-features.ps1    # Security hardening
-├── azure.yaml                                 # 🔄 Azure Developer CLI config (legacy)
 └── README.md                                  # This file
 ```
 

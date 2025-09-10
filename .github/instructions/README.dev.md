@@ -104,7 +104,7 @@ beeinfra/
 │       ├── local-env-instructions.md     # Local development setup
 │       └── initial-project-setup.instructions.md
 │
-└── environments/
+└── envs/
     └── dev/                              # Development environment
         ├── README.md                     # Dev environment quick guide
         ├── vms/                          # Individual VM configurations
@@ -253,7 +253,7 @@ az account show
 ssh-keygen -t rsa -b 4096 -C "your.email@domain.com"
 
 # 5. Navigate to dev environment
-cd /mnt/c/dev/beeinfra/environments/dev
+cd /mnt/c/dev/beeinfra/envs/dev
 ```
 
 ### Deploy Your First VM (ubuntu-dev-01)
@@ -582,8 +582,8 @@ az group create --name beeinfra-dev-rg --location eastus --tags Environment=dev
 ```bash
 # Problem: bash: permission denied
 # Solution:
-chmod +x environments/dev/vms/ubuntu-dev-01/scripts/*.sh
-chmod +x environments/dev/scripts/*/*.sh
+chmod +x envs/dev/vms/ubuntu-dev-01/scripts/*.sh
+chmod +x envs/dev/scripts/*/*.sh
 ```
 
 ### Diagnostic Commands
@@ -668,7 +668,7 @@ Monthly:
 
 ### Documentation Hierarchy
 1. **This File**: Comprehensive dev environment documentation
-2. **environments/dev/README.md**: Quick reference and commands
+2. **envs/dev/README.md**: Quick reference and commands
 3. **infrasetup.instructions.md**: Master infrastructure rules and requirements
 4. **Script Help**: All scripts have `--help` or `help` commands
 

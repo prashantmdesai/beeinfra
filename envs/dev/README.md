@@ -5,7 +5,7 @@ This directory contains the infrastructure code and management scripts for Ubunt
 ## 📁 Directory Structure
 
 ```
-environments/dev/
+envs/dev/
 ├── vms/                           # Individual VM configurations
 │   ├── ubuntu-dev-01/            # First VM (template/example)
 │   │   ├── bicep/                # Bicep infrastructure code
@@ -47,7 +47,7 @@ environments/dev/
 
 ```bash
 # Navigate to the dev environment
-cd environments/dev
+cd envs/dev
 
 # Deploy ubuntu-dev-01 (first VM)
 ./vms/ubuntu-dev-01/scripts/deploy.sh

@@ -1,9 +1,9 @@
 #!/bin/bash
 # =============================================================================
-# CONSERVATIVE DEVELOPMENT VM SOFTWARE INSTALLATION SCRIPT
+# DATS-BEEUX-DEV VM1 - SOFTWARE INSTALLATION SCRIPT
 # =============================================================================
-# This script installs only essential software packages for the development VM
-# Based on common Ubuntu development patterns and VM configuration analysis
+# This script installs essential software packages for the dats-beeux-dev VM1
+# Based on conservative approach with only necessary development tools
 # =============================================================================
 
 set -euo pipefail
@@ -34,7 +34,7 @@ if [[ $EUID -eq 0 ]]; then
    exit 1
 fi
 
-log "Starting CONSERVATIVE development software installation..."
+log "Starting DATS-BEEUX-DEV VM1 software installation..."
 log "Installing only essential packages for development work"
 
 # =============================================================================
@@ -133,9 +133,9 @@ chmod +x ~/setup-git.sh
 # CREATE WELCOME MESSAGE
 # =============================================================================
 cat > /tmp/motd << 'EOF'
-================================
-DEVELOPMENT UBUNTU VM (DEV)
-================================
+======================================
+DATS-BEEUX-DEV VM1 DEVELOPMENT VM
+======================================
 
 Installed Software:
 - Essential development tools
@@ -155,8 +155,11 @@ Next Steps:
    - node --version
    - python3 --version
 
-Auto-shutdown: Enabled at 19:00 UTC
-================================
+VM Configuration:
+- Size: Standard_B2ms (2 vCPU, 8GB RAM)
+- Storage: 30GB Premium SSD
+- Auto-shutdown: Enabled at 19:00 UTC
+======================================
 EOF
 
 sudo mv /tmp/motd /etc/motd
@@ -171,7 +174,7 @@ sudo apt-get autoclean
 # =============================================================================
 # FINAL STATUS
 # =============================================================================
-log "Installation completed successfully!"
+log "DATS-BEEUX-DEV VM1 installation completed successfully!"
 log "Verifying installations..."
 
 echo "Software versions:"
@@ -182,6 +185,6 @@ echo "- npm: $(npm --version 2>/dev/null || echo 'Not available')"
 echo "- Python3: $(python3 --version 2>/dev/null || echo 'Not available')"
 echo "- Git: $(git --version 2>/dev/null || echo 'Not available')"
 
-log "Development environment setup complete!"
+log "DATS-BEEUX-DEV VM1 development environment setup complete!"
 warning "Please log out and back in to refresh your shell environment."
 warning "Run ~/setup-git.sh to configure Git with your credentials."

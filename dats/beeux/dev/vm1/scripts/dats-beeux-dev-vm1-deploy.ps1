@@ -1,7 +1,7 @@
 # =============================================================================
-# DEPLOY DEV UBUNTU VM - PowerShell Script
+# DATS-BEEUX-DEV VM1 - DEPLOYMENT SCRIPT
 # =============================================================================
-# This script deploys the updated Ubuntu VM template with Standard_B2ms sizing
+# This script deploys the dats-beeux-dev VM1 Ubuntu VM with Standard_B2ms sizing
 # and comprehensive software installation automation
 # =============================================================================
 
@@ -41,7 +41,7 @@ function Write-Log {
 }
 
 try {
-    Write-Log "Starting Ubuntu VM deployment for $EnvironmentName environment..."
+    Write-Log "Starting dats-beeux-dev VM1 deployment for $EnvironmentName environment..."
     
     # Validate Azure CLI is installed and logged in
     Write-Log "Checking Azure CLI authentication..."
@@ -70,12 +70,18 @@ try {
     $plainTextPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($AdminPassword))
     
     # Prepare deployment parameters
-    $deploymentName = "ubuntu-vm-deployment-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-    $templateFile = ".\envs\dev\bicep\ubuntu-vm.bicep"
+    $deploymentName = "dats-beeux-dev-vm1-deployment-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+    $templateFile = ".\dats\beeux\dev\vm1\dats-beeux-dev-vm1-main.bicep"
+    $parametersFile = ".\dats\beeux\dev\vm1\dats-beeux-dev-vm1-parameters.json"
     
-    # Check if template file exists
+    # Check if template files exist
     if (-not (Test-Path $templateFile)) {
         Write-Log "Template file not found: $templateFile" "ERROR"
+        exit 1
+    }
+    
+    if (-not (Test-Path $parametersFile)) {
+        Write-Log "Parameters file not found: $parametersFile" "ERROR"
         exit 1
     }
     
@@ -88,26 +94,24 @@ try {
     Write-Log "Actual costs depend on usage patterns and auto-shutdown configuration." "WARNING"
     
     # Confirm deployment
-    $confirmation = Read-Host "Do you want to proceed with the deployment? (y/N)"
+    $confirmation = Read-Host "Do you want to proceed with the dats-beeux-dev VM1 deployment? (y/N)"
     if ($confirmation -ne "y" -and $confirmation -ne "Y") {
         Write-Log "Deployment cancelled by user."
         exit 0
     }
     
     # Start deployment
-    Write-Log "Starting Bicep deployment..."
+    Write-Log "Starting dats-beeux-dev VM1 Bicep deployment..."
     Write-Log "Deployment name: $deploymentName"
     
     $deploymentResult = az deployment sub create `
         --location $Location `
         --name $deploymentName `
         --template-file $templateFile `
+        --parameters $parametersFile `
         --parameters `
-            location=$Location `
-            environmentName=$EnvironmentName `
-            adminUsername=$AdminUsername `
-            adminPassword=$plainTextPassword `
             sshPublicKey=$SshPublicKey `
+            adminPassword=$plainTextPassword `
         --output json | ConvertFrom-Json
     
     if ($LASTEXITCODE -ne 0) {
@@ -131,8 +135,8 @@ try {
     # Create SSH config entry
     $sshConfigEntry = @"
 
-# Dev Ubuntu VM
-Host $EnvironmentName-ubuntu-vm
+# Dats-Beeux-Dev VM1
+Host dats-beeux-dev-vm1
     HostName $vmPublicIP
     User $AdminUsername
     Port 22
@@ -159,7 +163,7 @@ Host $EnvironmentName-ubuntu-vm
         Write-Log "SSH connectivity test: FAILED (VM may still be starting up)" "WARNING"
     }
     
-    Write-Log "VM deployment completed! The software installation script will run automatically." "SUCCESS"
+    Write-Log "dats-beeux-dev VM1 deployment completed! The software installation script will run automatically." "SUCCESS"
     Write-Log "It may take 10-15 minutes for all software to be installed." "INFO"
     
 } catch {

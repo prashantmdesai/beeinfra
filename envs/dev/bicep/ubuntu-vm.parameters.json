@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "eastus"
+    },
+    "environmentName": {
+      "value": "dev"
+    },
+    "vmName": {
+      "value": "dats-beeux-dev"
+    },
+    "adminUsername": {
+      "value": "beeuser"
+    },
+    "sshPublicKey": {
+      "value": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDWOBL3Ig8zFZPKu/sl1u0YSFZQG7SnBTHlF3jbimhBO4gJBJVV2FtOOKjj8+vDKyIQoLRUn/V4NnRBytH7CpxJd14atwDZvXwN/spYKkcniPOJY+V24yRa+b5bYNYx4wJd1M1zcuFfKUzR9dFYyUBndLQBhIhtIYRNzXIph4od2BzeHuiMp3uttNWV0kgNKL/6mam1WXbvLDrMJkiXMpMhGSj8kT8AD6kddEgoekcgnEsVtJvWIcuaThbuTN0rcjRW+IaCNey/JaYRw3b8DuqBnmv6sP5DXYm+zIAkr+3pn3qwgRVHzo2JCLNmtxgyLoK2pa3DAcjIK7FSIHxyWcao8G2kz1LaqZ7ry/HzRv7ILWMSMVQtWJfTJl8ir+qinKHFwaVetaw2e6VnYuGpTBx1nTSrgHv568DuRm+xbBoWgq45d/MyAw12FP5WO9ljT4kHb2NcdIBuEzDgRapr6J9XC+9uPvbCTixB3VFb/OY/GzCdfYe7od7EArEnylq8pAE= generated-by-azure"
+    },
+    "adminPassword": {
+      "value": "SecureP@ssw0rd123!"
+    },
+    "vmSize": {
+      "value": "Standard_B2ms"
+    },
+    "osDiskSizeGB": {
+      "value": 30
+    }
+  }
+}

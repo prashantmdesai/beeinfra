@@ -18,6 +18,9 @@ param location string = 'eastus'
 @description('Environment name')
 param environmentName string = 'dev'
 
+@description('VM name')
+param vmName string = 'dats-beeux-dev'
+
 @description('VM admin username')
 param adminUsername string = 'beeuser'
 
@@ -30,7 +33,7 @@ param sshPublicKey string
 param adminPassword string
 
 @description('VM size')
-param vmSize string = 'Standard_B2s'
+param vmSize string = 'Standard_B2ms'
 
 @description('OS disk size in GB')
 param osDiskSizeGB int = 30
@@ -78,6 +81,7 @@ module ubuntuVM 'modules/ubuntu-vm.bicep' = {
   params: {
     location: location
     environmentName: environmentName
+    vmName: vmName
     adminUsername: adminUsername
     sshPublicKey: sshPublicKey
     adminPassword: adminPassword
@@ -96,25 +100,25 @@ module ubuntuVM 'modules/ubuntu-vm.bicep' = {
 output resourceGroupName string = devResourceGroup.name
 
 @description('VM Public IP Address')
-output vmPublicIP string = ubuntuVM.outputs.publicIPAddress
+output vmPublicIP string = ubuntuVM.outputs.publicIpAddress
 
 @description('VM Private IP Address')
-output vmPrivateIP string = ubuntuVM.outputs.privateIPAddress
+output vmPrivateIP string = ubuntuVM.outputs.privateIpAddress
 
 @description('SSH Connection Command')
-output sshCommand string = 'ssh ${adminUsername}@${ubuntuVM.outputs.publicIPAddress}'
+output sshCommand string = 'ssh ${adminUsername}@${ubuntuVM.outputs.publicIpAddress}'
 
 @description('VM Resource ID')
-output vmResourceId string = ubuntuVM.outputs.vmResourceId
+output vmResourceId string = ubuntuVM.outputs.vmId
 
 @description('Estimated Monthly Cost')
-output estimatedMonthlyCost string = '$40.16 (if running 24/7)'
+output estimatedMonthlyCost string = '$69.26 (if running 24/7)'
 
 @description('Cost Breakdown')
 output costBreakdown object = {
-  vmCompute: '$30.37/month (Standard_B2s)'
+  vmCompute: '$59.47/month (Standard_B2ms)'
   storage: '$6.14/month (30GB Premium SSD)'
   publicIP: '$3.65/month (Static IP)'
-  total: '$40.16/month'
+  total: '$69.26/month'
   note: 'Costs shown for 24/7 operation. Actual costs depend on usage.'
 }

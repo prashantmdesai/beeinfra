@@ -121,6 +121,48 @@ resource networkSecurityGroup 'Microsoft.Network/networkSecurityGroups@2023-09-0
           description: 'Allow PostgreSQL database access'
         }
       }
+      {
+        name: 'AllowCustom8200'
+        properties: {
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '8200'
+          sourceAddressPrefix: '*'
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          priority: 1006
+          direction: 'Inbound'
+          description: 'Allow custom application on port 8200'
+        }
+      }
+      {
+        name: 'AllowCustom8888'
+        properties: {
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '8888'
+          sourceAddressPrefix: '*'
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          priority: 1007
+          direction: 'Inbound'
+          description: 'Allow custom application on port 8888'
+        }
+      }
+      {
+        name: 'AllowCustom8889'
+        properties: {
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '8889'
+          sourceAddressPrefix: '*'
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          priority: 1008
+          direction: 'Inbound'
+          description: 'Allow custom application on port 8889'
+        }
+      }
     ]
   }
 }

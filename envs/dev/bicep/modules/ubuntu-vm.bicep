@@ -10,6 +10,9 @@ param location string
 @description('Environment name')
 param environmentName string
 
+@description('VM name override')
+param vmName string = 'dats-beeux-dev'
+
 @description('VM administrator username')
 param adminUsername string
 
@@ -23,8 +26,11 @@ param sshPublicKey string
 @description('Subnet ID where VM will be deployed')
 param subnetId string
 
-@description('Network Security Group ID')
-param networkSecurityGroupId string
+@description('VM size')
+param vmSize string = 'Standard_B2ms'
+
+@description('OS disk size in GB')
+param osDiskSizeGB int = 30
 
 @description('Tags for all resources')
 param tags object
@@ -34,7 +40,7 @@ param tags object
 // =============================================================================
 
 resource publicIp 'Microsoft.Network/publicIPAddresses@2023-09-01' = {
-  name: 'pip-${environmentName}-ubuntu-vm'
+  name: 'pip-${vmName}'
   location: location
   tags: tags
   sku: {
@@ -45,7 +51,7 @@ resource publicIp 'Microsoft.Network/publicIPAddresses@2023-09-01' = {
     publicIPAllocationMethod: 'Static'
     publicIPAddressVersion: 'IPv4'
     dnsSettings: {
-      domainNameLabel: 'vm-${environmentName}-${uniqueString(resourceGroup().id)}'
+      domainNameLabel: '${vmName}-${uniqueString(resourceGroup().id)}'
     }
   }
 }
@@ -55,7 +61,7 @@ resource publicIp 'Microsoft.Network/publicIPAddresses@2023-09-01' = {
 // =============================================================================
 
 resource networkInterface 'Microsoft.Network/networkInterfaces@2023-09-01' = {
-  name: 'nic-${environmentName}-ubuntu-vm'
+  name: 'nic-${vmName}'
   location: location
   tags: tags
   properties: {
@@ -73,9 +79,6 @@ resource networkInterface 'Microsoft.Network/networkInterfaces@2023-09-01' = {
         }
       }
     ]
-    networkSecurityGroup: {
-      id: networkSecurityGroupId
-    }
   }
 }
 
@@ -84,7 +87,7 @@ resource networkInterface 'Microsoft.Network/networkInterfaces@2023-09-01' = {
 // =============================================================================
 
 resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: 'mid-${environmentName}-ubuntu-vm'
+  name: 'mid-${vmName}'
   location: location
   tags: tags
 }
@@ -94,7 +97,7 @@ resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-
 // =============================================================================
 
 resource virtualMachine 'Microsoft.Compute/virtualMachines@2023-09-01' = {
-  name: 'vm-${environmentName}-ubuntu'
+  name: vmName
   location: location
   tags: tags
   identity: {
@@ -105,10 +108,10 @@ resource virtualMachine 'Microsoft.Compute/virtualMachines@2023-09-01' = {
   }
   properties: {
     hardwareProfile: {
-      vmSize: 'Standard_B2s'
+      vmSize: vmSize
     }
     osProfile: {
-      computerName: 'vm-${environmentName}-ubuntu'
+      computerName: vmName
       adminUsername: adminUsername
       adminPassword: adminPassword
       linuxConfiguration: {
@@ -125,16 +128,17 @@ resource virtualMachine 'Microsoft.Compute/virtualMachines@2023-09-01' = {
     }
     storageProfile: {
       imageReference: {
-        publisher: 'Canonical'
-        offer: '0001-com-ubuntu-server-jammy'
-        sku: '22_04-lts-gen2'
+        publisher: 'canonical'
+        offer: 'ubuntu-24_04-lts'
+        sku: 'server'
         version: 'latest'
       }
       osDisk: {
-        name: 'disk-${environmentName}-ubuntu-vm-os'
+        name: 'disk-${vmName}-os'
         caching: 'ReadWrite'
         createOption: 'FromImage'
-        diskSizeGB: 30
+        diskSizeGB: osDiskSizeGB
+        deleteOption: 'Detach'
         managedDisk: {
           storageAccountType: 'Premium_LRS'
         }
@@ -194,55 +198,10 @@ resource vmExtension 'Microsoft.Compute/virtualMachines/extensions@2023-09-01' =
     typeHandlerVersion: '2.1'
     autoUpgradeMinorVersion: true
     settings: {
-      commandToExecute: '''
-        #!/bin/bash
-        # Update system packages
-        apt-get update && apt-get upgrade -y
-        
-        # Install essential development tools
-        apt-get install -y curl wget git vim htop tree unzip
-        
-        # Install Azure CLI
-        curl -sL https://aka.ms/InstallAzureCLIDeb | bash
-        
-        # Install GitHub CLI
-        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg
-        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-        apt-get update && apt-get install -y gh
-        
-        # Install Docker
-        curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh
-        usermod -aG docker azureuser
-        
-        # Install Node.js (LTS)
-        curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
-        apt-get install -y nodejs
-        
-        # Install Python3 pip and virtual environment
-        apt-get install -y python3-pip python3-venv
-        
-        # Install PostgreSQL client
-        apt-get install -y postgresql-client
-        
-        # Create a welcome message
-        cat > /etc/motd << EOF
-        ================================
-        DEVELOPMENT UBUNTU VM (${environmentName})
-        ================================
-        
-        Installed Software:
-        - Azure CLI
-        - GitHub CLI
-        - Docker
-        - Node.js (LTS)
-        - Python3 with pip
-        - PostgreSQL Client
-        - Git, Vim, and other essentials
-        
-        Auto-shutdown: Enabled at 19:00 UTC
-        ================================
-EOF
-      '''
+      fileUris: [
+        'https://raw.githubusercontent.com/prashantmdesai/beeinfra/main/envs/dev/scripts/install-dev-software.sh'
+      ]
+      commandToExecute: 'bash install-dev-software.sh'
     }
   }
 }
@@ -259,6 +218,9 @@ output vmName string = virtualMachine.name
 
 @description('Public IP Address')
 output publicIpAddress string = publicIp.properties.ipAddress
+
+@description('Private IP Address')
+output privateIpAddress string = networkInterface.properties.ipConfigurations[0].properties.privateIPAddress
 
 @description('FQDN for SSH connection')
 output fqdn string = publicIp.properties.dnsSettings.fqdn

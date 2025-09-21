@@ -3,7 +3,7 @@
 // =============================================================================
 // This Bicep template creates the dats-beeux-dev VM1 Ubuntu VM for development
 // Configuration:
-// - VM: Standard_B2ms (2 vCPU, 8GB RAM)
+// - VM: Standard_B4ms (4 vCPU, 16GB RAM)
 // - Storage: 30GB Premium SSD
 // - Network: Static Public IP
 // - Ports: SSH, HTTP, HTTPS, Database
@@ -25,7 +25,7 @@ param vmName string = 'dats-beeux-dev'
 param adminUsername string = 'beeuser'
 
 @description('VM size')
-param vmSize string = 'Standard_B2ms'
+param vmSize string = 'Standard_B4ms'
 
 @description('Availability Zone for the VM (1, 2, or 3)')
 param availabilityZone string = '2'
@@ -62,6 +62,7 @@ module networking 'modules/dats-beeux-dev-networking.bicep' = {
   params: {
     location: location
     environmentName: environmentName
+    allowedSourceIP: '192.168.86.0/24'
     tags: tags
   }
 }
@@ -105,13 +106,13 @@ output sshCommand string = 'ssh ${adminUsername}@${ubuntuVM.outputs.publicIpAddr
 output vmResourceId string = ubuntuVM.outputs.vmId
 
 @description('Estimated Monthly Cost')
-output estimatedMonthlyCost string = '$69.26 (if running 24/7)'
+output estimatedMonthlyCost string = '$128.91 (if running 24/7)'
 
 @description('Cost Breakdown')
 output costBreakdown object = {
-  vmCompute: '$59.47/month (Standard_B2ms)'
+  vmCompute: '$119.20/month (Standard_B4ms)'
   storage: '$6.14/month (30GB Premium SSD)'
   publicIP: '$3.65/month (Static IP)'
-  total: '$69.26/month'
+  total: '$128.91/month'
   note: 'Costs shown for 24/7 operation. Actual costs depend on usage.'
 }

@@ -13,6 +13,9 @@ param environmentName string
 @description('Tags for all resources')
 param tags object
 
+@description('Your public IP address for restricted access')
+param allowedSourceIP string = '136.56.79.92'
+
 // =============================================================================
 // VIRTUAL NETWORK
 // =============================================================================
@@ -51,6 +54,7 @@ resource networkSecurityGroup 'Microsoft.Network/networkSecurityGroups@2023-09-0
   tags: tags
   properties: {
     securityRules: [
+      // SSH Access
       {
         name: 'AllowSSH'
         properties: {
@@ -65,18 +69,19 @@ resource networkSecurityGroup 'Microsoft.Network/networkSecurityGroups@2023-09-0
           description: 'Allow SSH access'
         }
       }
+      // Web Services
       {
         name: 'AllowHTTP'
         properties: {
           protocol: 'Tcp'
           sourcePortRange: '*'
           destinationPortRange: '80'
-          sourceAddressPrefix: '*'
+          sourceAddressPrefix: allowedSourceIP
           destinationAddressPrefix: '*'
           access: 'Allow'
           priority: 1002
           direction: 'Inbound'
-          description: 'Allow HTTP access'
+          description: 'Allow HTTP access from your IP'
         }
       }
       {
@@ -85,12 +90,27 @@ resource networkSecurityGroup 'Microsoft.Network/networkSecurityGroups@2023-09-0
           protocol: 'Tcp'
           sourcePortRange: '*'
           destinationPortRange: '443'
-          sourceAddressPrefix: '*'
+          sourceAddressPrefix: allowedSourceIP
           destinationAddressPrefix: '*'
           access: 'Allow'
           priority: 1003
           direction: 'Inbound'
-          description: 'Allow HTTPS access'
+          description: 'Allow HTTPS access from your IP'
+        }
+      }
+      // Database Services
+      {
+        name: 'AllowPostgreSQL'
+        properties: {
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRanges: ['5432', '5433', '5434']
+          sourceAddressPrefix: allowedSourceIP
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          priority: 1005
+          direction: 'Inbound'
+          description: 'Allow PostgreSQL database access from your IP'
         }
       }
       {
@@ -99,68 +119,219 @@ resource networkSecurityGroup 'Microsoft.Network/networkSecurityGroups@2023-09-0
           protocol: 'Tcp'
           sourcePortRange: '*'
           destinationPortRange: '3306'
-          sourceAddressPrefix: '*'
+          sourceAddressPrefix: allowedSourceIP
           destinationAddressPrefix: '*'
           access: 'Allow'
           priority: 1004
           direction: 'Inbound'
-          description: 'Allow MySQL database access'
+          description: 'Allow MySQL database access from your IP'
         }
       }
+      // Redis Services
       {
-        name: 'AllowPostgreSQL'
+        name: 'AllowRedis'
         properties: {
           protocol: 'Tcp'
           sourcePortRange: '*'
-          destinationPortRange: '5432'
-          sourceAddressPrefix: '*'
+          destinationPortRanges: ['6379', '6380']
+          sourceAddressPrefix: allowedSourceIP
           destinationAddressPrefix: '*'
           access: 'Allow'
-          priority: 1005
+          priority: 1010
           direction: 'Inbound'
-          description: 'Allow PostgreSQL database access'
+          description: 'Allow Redis access from your IP'
         }
       }
       {
-        name: 'AllowCustom8200'
+        name: 'AllowRedisSentinel'
+        properties: {
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRanges: ['26379', '26380', '26381']
+          sourceAddressPrefix: allowedSourceIP
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          priority: 1011
+          direction: 'Inbound'
+          description: 'Allow Redis Sentinel access from your IP'
+        }
+      }
+      // RabbitMQ Services
+      {
+        name: 'AllowRabbitMQ'
+        properties: {
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRanges: ['5670', '5672', '5673', '5674']
+          sourceAddressPrefix: allowedSourceIP
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          priority: 1012
+          direction: 'Inbound'
+          description: 'Allow RabbitMQ AMQP access from your IP'
+        }
+      }
+      {
+        name: 'AllowRabbitMQManagement'
+        properties: {
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRanges: ['15670', '15672', '15673', '15674']
+          sourceAddressPrefix: allowedSourceIP
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          priority: 1013
+          direction: 'Inbound'
+          description: 'Allow RabbitMQ Management UI from your IP'
+        }
+      }
+      // HashiCorp Vault
+      {
+        name: 'AllowVault'
         properties: {
           protocol: 'Tcp'
           sourcePortRange: '*'
           destinationPortRange: '8200'
-          sourceAddressPrefix: '*'
+          sourceAddressPrefix: allowedSourceIP
           destinationAddressPrefix: '*'
           access: 'Allow'
           priority: 1006
           direction: 'Inbound'
-          description: 'Allow custom application on port 8200'
+          description: 'Allow HashiCorp Vault access from your IP'
         }
       }
+      // Development Applications
       {
-        name: 'AllowCustom8888'
+        name: 'AllowDevApps1'
         properties: {
           protocol: 'Tcp'
           sourcePortRange: '*'
-          destinationPortRange: '8888'
-          sourceAddressPrefix: '*'
+          destinationPortRanges: ['8083', '8404', '8888', '8889']
+          sourceAddressPrefix: allowedSourceIP
           destinationAddressPrefix: '*'
           access: 'Allow'
-          priority: 1007
+          priority: 1014
           direction: 'Inbound'
-          description: 'Allow custom application on port 8888'
+          description: 'Allow development applications from your IP'
         }
       }
       {
-        name: 'AllowCustom8889'
+        name: 'AllowDevApps2'
         properties: {
           protocol: 'Tcp'
           sourcePortRange: '*'
-          destinationPortRange: '8889'
-          sourceAddressPrefix: '*'
+          destinationPortRanges: ['9121', '9419', '9999']
+          sourceAddressPrefix: allowedSourceIP
           destinationAddressPrefix: '*'
           access: 'Allow'
-          priority: 1008
+          priority: 1015
           direction: 'Inbound'
-          description: 'Allow custom application on port 8889'
+          description: 'Allow monitoring and dev applications from your IP'
+        }
+      }
+      // Common Development Ports
+      {
+        name: 'AllowCommonDevPorts'
+        properties: {
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRanges: ['4000', '4001', '8000', '8001']
+          sourceAddressPrefix: allowedSourceIP
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          priority: 1016
+          direction: 'Inbound'
+          description: 'Allow common development ports from your IP'
+        }
+      }
+      // Monitoring and Observability Services
+      {
+        name: 'AllowMonitoring'
+        properties: {
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRanges: ['3100', '9090', '9091', '9093', '9100', '9115', '9187']
+          sourceAddressPrefix: allowedSourceIP
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          priority: 1017
+          direction: 'Inbound'
+          description: 'Allow Prometheus, Grafana Loki, and monitoring tools from your IP'
+        }
+      }
+      // Grafana and Dashboard Services
+      {
+        name: 'AllowDashboards'
+        properties: {
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRanges: ['3000', '3001', '8080', '8081', '9000', '9001']
+          sourceAddressPrefix: allowedSourceIP
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          priority: 1018
+          direction: 'Inbound'
+          description: 'Allow Grafana and dashboard services from your IP'
+        }
+      }
+      // Kubernetes Services
+      {
+        name: 'AllowKubernetes'
+        properties: {
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRanges: ['8090', '30000', '30001', '30080', '30443', '32000']
+          sourceAddressPrefix: allowedSourceIP
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          priority: 1019
+          direction: 'Inbound'
+          description: 'Allow Kubernetes Dashboard and NodePort services from your IP'
+        }
+      }
+      // Kubernetes Ingress NodePorts (Active Services)
+      {
+        name: 'AllowKubernetesIngress'
+        properties: {
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRanges: ['30214', '30500']
+          sourceAddressPrefix: allowedSourceIP
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          priority: 1021
+          direction: 'Inbound'
+          description: 'Allow Kubernetes Ingress Controller NodePorts from your IP'
+        }
+      }
+      // Additional Development Services
+      {
+        name: 'AllowAdditionalDevServices'
+        properties: {
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRanges: ['5000', '5001', '5050', '5555', '7000', '7001', '8888', '8889', '9900']
+          sourceAddressPrefix: allowedSourceIP
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          priority: 1020
+          direction: 'Inbound'
+          description: 'Allow additional development services and tools from your IP'
+        }
+      }
+      // DNS Services (for development)
+      {
+        name: 'AllowDNS'
+        properties: {
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '53'
+          sourceAddressPrefix: allowedSourceIP
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          priority: 1022
+          direction: 'Inbound'
+          description: 'Allow DNS access from your WiFi network'
         }
       }
     ]

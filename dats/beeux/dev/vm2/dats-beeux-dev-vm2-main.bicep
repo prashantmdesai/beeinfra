@@ -1,10 +1,10 @@
 // =============================================================================
-// DATS-BEEUX-DEV VM1 - MAIN DEPLOYMENT TEMPLATE
+// DATS-BEEUX-DEV VM2 - MAIN DEPLOYMENT TEMPLATE
 // =============================================================================
-// This Bicep template creates the dats-beeux-dev-data Ubuntu VM for data services
+// This Bicep template creates the dats-beeux-dev VM2 Ubuntu VM for development
 // Configuration:
-// - VM: Standard_B2ms (2 vCPU, 8GB RAM)
-// - Storage: 30GB Premium SSD
+// - VM: Standard_B4ms (4 vCPU, 16GB RAM)
+// - Storage: 30GB Premium SSD (NEW DISK - Cannot share with VM1)
 // - Network: Static Public IP
 // - Ports: SSH, HTTP, HTTPS, Database
 // - OS: Ubuntu 24.04 LTS
@@ -19,19 +19,26 @@ param location string = 'eastus'
 param environmentName string = 'dev'
 
 @description('VM name')
-param vmName string = 'dats-beeux-dev-data'
+param vmName string = 'dats-beeux-dev-apps'
 
 @description('VM admin username')
 param adminUsername string = 'beeuser'
+
+@description('VM admin password (required for new VM)')
+@secure()
+param adminPassword string
+
+@description('SSH public key for authentication')
+param sshPublicKey string = ''
 
 @description('VM size')
 param vmSize string = 'Standard_B2ms'
 
 @description('Availability Zone for the VM (1, 2, or 3)')
-param availabilityZone string = '2'
+param availabilityZone string = '1'
 
-@description('Existing OS disk resource ID from dev-scsm-vault VM')
-param existingOsDiskId string = '/subscriptions/f82e8e5e-cf53-4ef7-b717-dacc295d4ee4/resourceGroups/beeinfra-dev-rg/providers/Microsoft.Compute/disks/dev-scsm-vault_OsDisk_1_b230a675a9f34aaaa7f750e7d041b061'
+@description('OS disk size in GB')
+param osDiskSizeGB int = 30
 
 @description('Tags for all resources')
 param tags object = {
@@ -40,25 +47,25 @@ param tags object = {
   Owner: 'DevTeam'
   CostCenter: 'Development'
   CreatedBy: 'Bicep'
+  VMInstance: 'VM2'
 }
 
 // =============================================================================
-// RESOURCE GROUP
+// RESOURCE GROUP (Use existing or create new)
 // =============================================================================
 
-resource devResourceGroup 'Microsoft.Resources/resourceGroups@2023-07-01' = {
+resource devResourceGroup 'Microsoft.Resources/resourceGroups@2023-07-01' existing = {
   name: 'rg-${environmentName}-eastus'
-  location: location
-  tags: tags
 }
 
 // =============================================================================
-// NETWORKING MODULE
+// NETWORKING MODULE (Use existing networking from VM1)
 // =============================================================================
 
-module networking 'modules/dats-beeux-dev-vm1-networking.bicep' = {
+// Reference existing networking resources from VM1
+module networking 'modules/dats-beeux-dev-vm2-networking.bicep' = {
   scope: devResourceGroup
-  name: 'dats-beeux-dev-vm1-networking'
+  name: 'dats-beeux-dev-vm2-networking'
   params: {
     location: location
     environmentName: environmentName
@@ -71,16 +78,18 @@ module networking 'modules/dats-beeux-dev-vm1-networking.bicep' = {
 // UBUNTU VM MODULE  
 // =============================================================================
 
-module ubuntuVM 'modules/dats-beeux-dev-vm1.bicep' = {
+module ubuntuVM 'modules/dats-beeux-dev-vm2.bicep' = {
   scope: devResourceGroup
-  name: 'dats-beeux-dev-vm1'
+  name: 'dats-beeux-dev-vm2'
   params: {
     location: location
     vmName: vmName
     adminUsername: adminUsername
+    adminPassword: adminPassword
+    sshPublicKey: sshPublicKey
     vmSize: vmSize
     availabilityZone: availabilityZone
-    existingOsDiskId: existingOsDiskId
+    osDiskSizeGB: osDiskSizeGB
     subnetId: networking.outputs.subnetId
     tags: tags
   }
@@ -115,4 +124,19 @@ output costBreakdown object = {
   publicIP: '$3.65/month (Static IP)'
   total: '$69.46/month'
   note: 'Costs shown for 24/7 operation. Actual costs depend on usage.'
+}
+
+@description('Combined VM1 + VM2 Monthly Cost')
+output combinedMonthlyCost string = '$138.92 (both VMs running 24/7)'
+
+@description('Combined Cost Breakdown')
+output combinedCostBreakdown object = {
+  vm1Compute: '$59.67/month (Standard_B2ms)'
+  vm1Storage: '$6.14/month (30GB Premium SSD)'
+  vm1PublicIP: '$3.65/month (Static IP)'
+  vm2Compute: '$59.67/month (Standard_B2ms)'
+  vm2Storage: '$6.14/month (30GB Premium SSD)'
+  vm2PublicIP: '$3.65/month (Static IP)'
+  totalCombined: '$138.92/month'
+  savingsNote: 'No disk sharing possible - each VM requires separate disk'
 }

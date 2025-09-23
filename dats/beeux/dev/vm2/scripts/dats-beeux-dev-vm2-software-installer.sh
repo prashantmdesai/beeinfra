@@ -9,13 +9,19 @@
 
 set -e  # Exit on any error
 
+# Source Infrastructure Command Logging Standard v1.1
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../../../../scripts/logging-standard-bash.sh"
+
+# Initialize logging
+setup_logging
+
 # Variables
-LOG_FILE="/var/log/vm2-software-install.log"
 USER_HOME="/home/beeuser"
 
-# Logging function
+# Enhanced logging function using Infrastructure Command Logging Standard
 log() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1"
 }
 
 log "Starting VM2 software installation..."

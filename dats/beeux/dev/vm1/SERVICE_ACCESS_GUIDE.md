@@ -148,10 +148,34 @@ The following ports are also available for development use:
 
 ## Security Configuration
 
-All ports are configured with Network Security Group rules that:
-- **Restrict access** to your WiFi network: `192.168.86.0/24` (entire WiFi network)
-- **Block** all other internet traffic to these services
-- **Allow** SSH access from anywhere (port 22)
+**⚠️ CURRENT STATUS: SSH TUNNELS ACTIVE (WORKAROUND)**
+
+**What's Working:**
+- ✅ VM is running and accessible via SSH
+- ✅ All services are running inside the VM
+- ✅ Services respond when accessed from within the VM
+- ✅ **SSH tunnels are now active for key services**
+
+**What's Not Working:**
+- ❌ Direct external access to web services (NSG rules issue)
+- ❌ Azure CLI commands hanging (authentication issue)
+
+**ACTIVE SSH TUNNELS:**
+You can now access services via localhost on these ports:
+- **Vault**: `http://localhost:28200` (maps to VM port 8200)
+- **RabbitMQ Management**: `http://localhost:25672` (maps to VM port 15672)
+- **Grafana**: `http://localhost:23000` (maps to VM port 3000)
+- **Prometheus**: `http://localhost:29090` (maps to VM port 9090)
+- **PostgreSQL**: `localhost:25432` (maps to VM port 5432)
+- **Redis**: `localhost:26379` (maps to VM port 6379)
+- **BeEux Web App**: `http://localhost:28080` (maps to VM port 8080)
+
+**Issue:** Network Security Group rules may not be properly deployed despite correct Bicep configuration.
+
+**Configured (but not working) NSG rules:**
+- **Should restrict access** to your WiFi network: `192.168.86.0/24` (entire WiFi network)
+- **Should block** all other internet traffic to these services
+- **Working:** SSH access from anywhere (port 22)
 
 ### Port Categories Configured:
 1. **Database Services**: PostgreSQL (5432-5434), MySQL (3306), Redis (6379-6380), Redis Sentinel (26379-26381)
@@ -215,6 +239,54 @@ ssh -L 30214:192.168.49.2:30214 -L 30500:192.168.49.2:30500 dats-beeux-dev
 # http://localhost:30214/api - API Gateway  
 # http://localhost:30214/health - Health Check
 ```
+
+## 🛠️ **CURRENT WORKAROUND: SSH TUNNELS**
+
+**⚠️ IMPORTANT: How SSH Tunnels Work**
+When you run an SSH tunnel command with `-N`, it will appear to "hang" - this is **NORMAL**! 
+The tunnel is running and you should **leave that terminal open**.
+
+**Step-by-step SSH Tunnel Setup:**
+
+1. **Open a PowerShell terminal** and run this command (it will appear to hang - that's correct):
+```bash
+ssh -L 28200:localhost:8200 dats-beeux-dev -N
+```
+
+2. **Leave that terminal open** and open a **NEW terminal or browser** to access the service
+
+3. **Access Vault** in your browser: `http://localhost:28200`
+
+**Additional Tunnels (run each in a separate terminal):**
+```bash
+# RabbitMQ Management (run in new terminal)
+ssh -L 25672:localhost:15672 dats-beeux-dev -N
+
+# Grafana (run in new terminal)  
+ssh -L 23000:localhost:3000 dats-beeux-dev -N
+
+# BeEux Web App (run in new terminal)
+ssh -L 28080:localhost:8080 dats-beeux-dev -N
+```
+
+**Access Your Services:**
+- **HashiCorp Vault**: `http://localhost:28200` 
+- **RabbitMQ Management**: `http://localhost:25672`
+- **Grafana Dashboard**: `http://localhost:23000`
+- **BeEux Web App**: `http://localhost:28080`
+
+**Database Connections:**
+```bash
+# PostgreSQL tunnel (run in new terminal)
+ssh -L 25432:localhost:5432 dats-beeux-dev -N
+# Then connect: psql -h localhost -p 25432 -U username -d database_name
+
+# Redis tunnel (run in new terminal)  
+ssh -L 26379:localhost:6379 dats-beeux-dev -N
+# Then connect: redis-cli -h localhost -p 26379
+```
+
+**Note:** Keep the SSH tunnel terminal open while using the services. The tunnel will automatically reconnect if needed.
 
 ## Monthly Cost Estimate
 - **Total**: $128.91/month (if running 24/7)

@@ -54,6 +54,21 @@ resource networkSecurityGroup 'Microsoft.Network/networkSecurityGroups@2023-09-0
   tags: tags
   properties: {
     securityRules: [
+      // Internal VM-to-VM Communication (High Priority)
+      {
+        name: 'AllowVMToVMCommunication'
+        properties: {
+          protocol: '*'
+          sourcePortRange: '*'
+          destinationPortRange: '*'
+          sourceAddressPrefix: 'VirtualNetwork'
+          destinationAddressPrefix: 'VirtualNetwork'
+          access: 'Allow'
+          priority: 100
+          direction: 'Inbound'
+          description: 'Allow all communication between VMs in the VNet for service discovery and inter-VM communication'
+        }
+      }
       // SSH Access
       {
         name: 'AllowSSH'

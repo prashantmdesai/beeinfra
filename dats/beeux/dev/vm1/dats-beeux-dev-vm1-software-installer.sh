@@ -8,6 +8,13 @@
 
 set -euo pipefail
 
+# Source Infrastructure Command Logging Standard v1.1
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../../../scripts/logging-standard-bash.sh"
+
+# Initialize logging
+setup_logging
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -15,7 +22,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Logging function
+# Enhanced logging functions using Infrastructure Command Logging Standard
 log() {
     echo -e "${GREEN}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} $1"
 }

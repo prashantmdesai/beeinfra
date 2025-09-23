@@ -5,6 +5,13 @@
 # and comprehensive software installation automation
 # =============================================================================
 
+# Source Infrastructure Command Logging Standard v1.1
+$LoggingModule = Join-Path $PSScriptRoot "..\..\..\..\scripts\logging-standard-powershell.ps1"
+. $LoggingModule
+
+# Initialize logging
+Setup-Logging
+
 param(
     [Parameter(Mandatory=$true)]
     [string]$SubscriptionId,

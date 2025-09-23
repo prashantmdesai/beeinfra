@@ -14,6 +14,13 @@
 # 3. Deploy the new dats-beeux-dev VM using the existing disk
 # =============================================================================
 
+# Source Infrastructure Command Logging Standard v1.1
+$LoggingModule = Join-Path $PSScriptRoot "..\..\..\..\scripts\logging-standard-powershell.ps1"
+. $LoggingModule
+
+# Initialize logging
+Setup-Logging
+
 param(
     [Parameter(Mandatory=$false)]
     [string]$SourceSubscriptionId = "f82e8e5e-cf53-4ef7-b717-dacc295d4ee4",

@@ -1,7 +1,7 @@
 # =============================================================================
-# DATS-BEEUX-DEV VM2 - DEPLOYMENT SCRIPT
+# DATS-BEEUX-DEV VM2 - DEPLOYMENT SCRIPT (Azure CLI)
 # =============================================================================
-# PowerShell script to deploy VM2 infrastructure
+# PowerShell script to deploy VM2 (dats-beeux-dev-apps) infrastructure using Azure CLI
 # =============================================================================
 
 param(
@@ -10,6 +10,13 @@ param(
     [switch]$WhatIf = $false
 )
 
+# Source Infrastructure Command Logging Standard v1.1
+$LoggingModule = Join-Path $PSScriptRoot "..\..\..\scripts\logging-standard-powershell.ps1"
+. $LoggingModule
+
+# Initialize logging
+Setup-Logging
+
 # Check if required parameters are provided
 if (-not $AdminPassword) {
     Write-Error "AdminPassword is required. Use -AdminPassword parameter."
@@ -17,7 +24,7 @@ if (-not $AdminPassword) {
 }
 
 # Variables
-$SubscriptionId = "f82e8e5e-cf53-4ef7-b717-dacc295d4ee4"
+$SubscriptionId = "d1f25f66-8914-4652-bcc4-8c6e0e0f1216"
 $Location = "eastus"
 $DeploymentName = "dats-beeux-dev-apps-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
 $TemplateFile = "dats-beeux-dev-vm2-main.bicep"
@@ -31,38 +38,30 @@ Write-Host "Location: $Location" -ForegroundColor Yellow
 Write-Host "What-If Mode: $WhatIf" -ForegroundColor Yellow
 Write-Host ""
 
-# Login to Azure (if not already logged in)
-Write-Host "Checking Azure authentication..." -ForegroundColor Green
-try {
-    $context = Get-AzContext
-    if (-not $context) {
-        Write-Host "Please login to Azure..."
-        Connect-AzAccount
-    }
-    Write-Host "Authenticated as: $($context.Account.Id)" -ForegroundColor Green
-} catch {
-    Write-Error "Failed to authenticate to Azure: $_"
+# Check Azure CLI login
+Write-Host "Checking Azure CLI authentication..." -ForegroundColor Green
+$account = az account show --query "id" -o tsv 2>$null
+if (-not $account) {
+    Write-Error "Not logged into Azure CLI. Please run 'az login'"
     exit 1
 }
 
+Write-Host "Authenticated as: $(az account show --query "user.name" -o tsv)" -ForegroundColor Green
+
 # Set subscription context
 Write-Host "Setting subscription context..." -ForegroundColor Green
-Set-AzContext -SubscriptionId $SubscriptionId
-
-# Create secure password
-$SecurePassword = ConvertTo-SecureString $AdminPassword -AsPlainText -Force
-
-# Build deployment parameters
-$DeploymentParameters = @{
-    Name = $DeploymentName
-    Location = $Location
-    TemplateFile = $TemplateFile
-    adminPassword = $SecurePassword
+az account set --subscription $SubscriptionId
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Failed to set subscription context"
+    exit 1
 }
+
+# Build deployment parameters for Azure CLI
+$parameters = "adminPassword='$AdminPassword'"
 
 # Add SSH public key if provided
 if ($SshPublicKey) {
-    $DeploymentParameters.sshPublicKey = $SshPublicKey
+    $parameters += " sshPublicKey='$SshPublicKey'"
     Write-Host "SSH public key will be configured for authentication" -ForegroundColor Yellow
 } else {
     Write-Host "Only password authentication will be configured" -ForegroundColor Yellow
@@ -76,26 +75,32 @@ Write-Host "========================================" -ForegroundColor Cyan
 try {
     if ($WhatIf) {
         Write-Host "Running What-If analysis..." -ForegroundColor Yellow
-        $result = New-AzSubscriptionDeployment @DeploymentParameters -WhatIf
-        Write-Host "What-If analysis completed." -ForegroundColor Green
+        $result = az deployment sub what-if --location $Location --template-file $TemplateFile --parameters $parameters --name $DeploymentName
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "What-If analysis completed." -ForegroundColor Green
+        } else {
+            Write-Error "What-If analysis failed"
+            exit 1
+        }
     } else {
         Write-Host "Starting dats-beeux-dev-apps VM deployment..." -ForegroundColor Yellow
         Write-Host "This will take approximately 5-10 minutes..." -ForegroundColor Yellow
         
-        $result = New-AzSubscriptionDeployment @DeploymentParameters
+        $result = az deployment sub create --location $Location --template-file $TemplateFile --parameters $parameters --name $DeploymentName
         
-        if ($result.ProvisioningState -eq "Succeeded") {
+        if ($LASTEXITCODE -eq 0) {
             Write-Host ""
             Write-Host "========================================" -ForegroundColor Green
             Write-Host "DEPLOYMENT SUCCESSFUL!" -ForegroundColor Green
             Write-Host "========================================" -ForegroundColor Green
             
             # Display outputs
-            if ($result.Outputs) {
+            $outputs = az deployment sub show --name $DeploymentName --query "properties.outputs" -o json | ConvertFrom-Json
+            if ($outputs) {
                 Write-Host ""
                 Write-Host "Deployment Outputs:" -ForegroundColor Cyan
-                foreach ($output in $result.Outputs.GetEnumerator()) {
-                    Write-Host "$($output.Key): $($output.Value.Value)" -ForegroundColor Yellow
+                foreach ($output in $outputs.PSObject.Properties) {
+                    Write-Host "$($output.Name): $($output.Value.value)" -ForegroundColor Yellow
                 }
             }
             
@@ -107,9 +112,10 @@ try {
             Write-Host "4. Review installation summary: cat ~/vm2-installation-summary.txt" -ForegroundColor White
             
         } else {
-            Write-Error "Deployment failed with state: $($result.ProvisioningState)"
-            if ($result.Error) {
-                Write-Error "Error details: $($result.Error.Message)"
+            Write-Error "Deployment failed"
+            $errorDetails = az deployment sub show --name $DeploymentName --query "properties.error" -o json 2>$null
+            if ($errorDetails -and $errorDetails -ne "null") {
+                Write-Error "Error details: $errorDetails"
             }
             exit 1
         }

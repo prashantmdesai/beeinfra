@@ -8,6 +8,13 @@
 
 set -e
 
+# Source Infrastructure Command Logging Standard v1.1
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../../../../scripts/logging-standard-bash.sh"
+
+# Initialize logging
+setup_logging
+
 # Configuration
 SOURCE_SUBSCRIPTION="f82e8e5e-cf53-4ef7-b717-dacc295d4ee4"
 TARGET_SUBSCRIPTION="d1f25f66-8914-4652-bcc4-8c6e0e0f1216"

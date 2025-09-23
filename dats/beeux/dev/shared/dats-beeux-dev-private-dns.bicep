@@ -78,10 +78,10 @@ resource appsVmDnsRecord 'Microsoft.Network/privateDnsZones/A@2020-06-01' = {
   }
 }
 
-// Additional service-specific DNS records for common services
-resource postgresqlDnsRecord 'Microsoft.Network/privateDnsZones/A@2020-06-01' = {
+// Custom service-specific DNS records
+resource wdatPostgresqlDnsRecord 'Microsoft.Network/privateDnsZones/A@2020-06-01' = {
   parent: privateDnsZone
-  name: 'postgresql'
+  name: 'wdat-postgresql'
   properties: {
     aRecords: [
       {
@@ -92,9 +92,9 @@ resource postgresqlDnsRecord 'Microsoft.Network/privateDnsZones/A@2020-06-01' = 
   }
 }
 
-resource redisDnsRecord 'Microsoft.Network/privateDnsZones/A@2020-06-01' = {
+resource wcacRedisDnsRecord 'Microsoft.Network/privateDnsZones/A@2020-06-01' = {
   parent: privateDnsZone
-  name: 'redis'
+  name: 'wcac-redis'
   properties: {
     aRecords: [
       {
@@ -105,13 +105,39 @@ resource redisDnsRecord 'Microsoft.Network/privateDnsZones/A@2020-06-01' = {
   }
 }
 
-resource vaultDnsRecord 'Microsoft.Network/privateDnsZones/A@2020-06-01' = {
+resource scsmVaultDnsRecord 'Microsoft.Network/privateDnsZones/A@2020-06-01' = {
   parent: privateDnsZone
-  name: 'vault'
+  name: 'scsm-vault'
   properties: {
     aRecords: [
       {
         ipv4Address: dataVmPrivateIp
+      }
+    ]
+    ttl: 300
+  }
+}
+
+resource wedaRabbitmqDnsRecord 'Microsoft.Network/privateDnsZones/A@2020-06-01' = {
+  parent: privateDnsZone
+  name: 'weda-rabbitmq'
+  properties: {
+    aRecords: [
+      {
+        ipv4Address: dataVmPrivateIp
+      }
+    ]
+    ttl: 300
+  }
+}
+
+resource sccmConfigServerDnsRecord 'Microsoft.Network/privateDnsZones/A@2020-06-01' = {
+  parent: privateDnsZone
+  name: 'sccm-config-server'
+  properties: {
+    aRecords: [
+      {
+        ipv4Address: appsVmPrivateIp
       }
     ]
     ttl: 300
@@ -134,11 +160,18 @@ output dataVmInternalFqdn string = 'data.${privateDnsZone.name}'
 @description('Apps VM internal FQDN')
 output appsVmInternalFqdn string = 'apps.${privateDnsZone.name}'
 
-@description('PostgreSQL service FQDN')
-output postgresqlServiceFqdn string = 'postgresql.${privateDnsZone.name}'
+// Custom service FQDNs
+@description('WDAT PostgreSQL service FQDN')
+output wdatPostgresqlServiceFqdn string = 'wdat-postgresql.${privateDnsZone.name}'
 
-@description('Redis service FQDN')
-output redisServiceFqdn string = 'redis.${privateDnsZone.name}'
+@description('WCAC Redis service FQDN')
+output wcacRedisServiceFqdn string = 'wcac-redis.${privateDnsZone.name}'
 
-@description('Vault service FQDN')
-output vaultServiceFqdn string = 'vault.${privateDnsZone.name}'
+@description('SCSM Vault service FQDN')
+output scsmVaultServiceFqdn string = 'scsm-vault.${privateDnsZone.name}'
+
+@description('WEDA RabbitMQ service FQDN')
+output wedaRabbitmqServiceFqdn string = 'weda-rabbitmq.${privateDnsZone.name}'
+
+@description('SCCM Config Server service FQDN')
+output sccmConfigServerServiceFqdn string = 'sccm-config-server.${privateDnsZone.name}'

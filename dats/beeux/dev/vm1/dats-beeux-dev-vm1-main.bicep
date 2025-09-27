@@ -28,10 +28,10 @@ param adminUsername string = 'beeuser'
 param vmSize string = 'Standard_B2ms'
 
 @description('Availability Zone for the VM (1, 2, or 3)')
-param availabilityZone string = '2'
+param availabilityZone string = '1'
 
-@description('Existing OS disk resource ID from dev-scsm-vault VM')
-param existingOsDiskId string = '/subscriptions/f82e8e5e-cf53-4ef7-b717-dacc295d4ee4/resourceGroups/beeinfra-dev-rg/providers/Microsoft.Compute/disks/dev-scsm-vault_OsDisk_1_b230a675a9f34aaaa7f750e7d041b061'
+@description('Existing OS disk resource ID from dev-scsm-vault VM (Zone 1)')
+param existingOsDiskId string = '/subscriptions/d1f25f66-8914-4652-bcc4-8c6e0e0f1216/resourceGroups/beeinfra-dev-rg/providers/Microsoft.Compute/disks/dats-beeux-dev-data-osdisk-zone1'
 
 @description('Tags for all resources')
 param tags object = {

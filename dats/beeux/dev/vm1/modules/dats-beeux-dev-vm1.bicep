@@ -20,7 +20,7 @@ param subnetId string
 param vmSize string = 'Standard_B2ms'
 
 @description('Availability Zone for the VM (1, 2, or 3)')
-param availabilityZone string = '2'
+param availabilityZone string = '1'
 
 @description('Existing OS disk resource ID from dev-scsm-vault VM')
 param existingOsDiskId string

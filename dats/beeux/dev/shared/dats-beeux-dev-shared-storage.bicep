@@ -9,7 +9,11 @@
 param environmentName string
 
 @description('Tags for all resources')
-param tags object
+param tags object = {
+  Environment: 'Dev'
+  Project: 'BeeInfra'
+  Migration: 'CentralUS'
+}
 
 @description('Location for resources')
 param location string = resourceGroup().location

@@ -23,7 +23,7 @@ param tags object
 
 // Reference existing VNet (created by VM1)
 resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' existing = {
-  name: 'vnet-${environmentName}-eastus'
+  name: 'vnet-${environmentName}-${location}'
 }
 
 // Reference existing subnet (created by VM1)

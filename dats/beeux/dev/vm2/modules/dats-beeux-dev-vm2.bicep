@@ -24,7 +24,7 @@ param sshPublicKey string = ''
 param subnetId string
 
 @description('VM size')
-param vmSize string = 'Standard_B2ms'
+param vmSize string = 'Standard_B4ms'
 
 @description('Availability Zone for the VM (1, 2, or 3)')
 param availabilityZone string = '1'

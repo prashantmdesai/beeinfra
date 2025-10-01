@@ -16,7 +16,7 @@ This document contains complete details of all components, services, DNS names, 
 | VM Name | Role | Public IP | Private IP | Zone | Size | Status |
 |---------|------|-----------|------------|------|------|--------|
 | `dats-beeux-dev-data` | Infrastructure Services | `172.178.13.46` | `10.0.1.4` | Zone 1 | Standard_B2ms | ✅ Running |
-| `dats-beeux-dev-apps` | Kubernetes Applications | `20.124.235.183` | `10.0.1.5` | Zone 1 | Standard_B2ms | ✅ Running |
+| `dats-beeux-dev-apps` | Kubernetes Applications | `20.124.235.183` | `10.0.1.5` | Zone 1 | Standard_B4ms | ✅ Running |
 
 ### **Network Configuration**
 - **Resource Group**: `rg-dev-eastus`
@@ -79,7 +79,7 @@ This document contains complete details of all components, services, DNS names, 
 | Service | Internal FQDN | Port(s) | External Access | Purpose |
 |---------|---------------|---------|-----------------|---------|
 | **HashiCorp Vault** | `scsm-vault.dats-beeux-dev.internal` | `8200,8201` | https://172.178.13.46:8200 | Secrets Management |
-| **Config Server** | `sccm-config-server.dats-beeux-dev.internal` | `8080` | Internal only (`10.0.1.4:8080`) | Configuration Service |
+| **Config Server** | `sccm-config-server.dats-beeux-dev.internal` | `8888,8889` | http://172.178.13.46:8888 | Configuration Service |
 
 #### **📈 Monitoring & Admin Services**
 | Service | Port | External Access | Purpose |
@@ -141,7 +141,7 @@ This document contains complete details of all components, services, DNS names, 
 | Kubernetes Service | External FQDN Target | Purpose |
 |--------------------|---------------------|---------|
 | `scsm-vault-external-service` | `scsm-vault.dats-beeux-dev.internal:8200` | Vault Access |
-| `sccm-config-server-external-service` | `sccm-config-server.dats-beeux-dev.internal:8080` | Config Server |
+| `sccm-config-server-external-service` | `sccm-config-server.dats-beeux-dev.internal:8888` | Config Server |
 | `wcac-redis-cluster-external-service` | `wcac-redis.dats-beeux-dev.internal:6379,6380,6381` | Redis Cluster |
 | `wdat-postgres-primary-external-service` | `wdat-postgresql.dats-beeux-dev.internal:5432` | Primary DB |
 | `wdat-postgres-secondary-external-service` | `wdat-postgresql.dats-beeux-dev.internal:5433` | Secondary DB |
@@ -246,6 +246,7 @@ ssh <username>@20.124.235.183
 ```bash
 # From Apps VM to Data VM services
 curl http://scsm-vault.dats-beeux-dev.internal:8200
+curl http://sccm-config-server.dats-beeux-dev.internal:8888
 curl http://wdat-postgresql.dats-beeux-dev.internal:5432
 curl http://wcac-redis.dats-beeux-dev.internal:6379
 
@@ -328,6 +329,7 @@ kubectl port-forward --address 0.0.0.0 -n dats-beeux-dev svc/nglb-nginx-service 
 - ✅ Configured comprehensive NSG rules for laptop access
 - ✅ Set up production-grade NGLB with multi-replica support
 - ✅ Enabled external access via kubectl port-forward
+- ✅ **Upgraded Apps VM to Standard_B4ms (4 vCPU, 16GB RAM)** - September 28, 2025
 
 ### **Backup & Recovery**
 - VM snapshots taken before zone migration

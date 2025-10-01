@@ -13,7 +13,7 @@
 targetScope = 'subscription'
 
 @description('Location for all resources')
-param location string = 'eastus'
+param location string = 'centralus'
 
 @description('Environment name')
 param environmentName string = 'dev'
@@ -47,7 +47,7 @@ param tags object = {
 // =============================================================================
 
 resource devResourceGroup 'Microsoft.Resources/resourceGroups@2023-07-01' = {
-  name: 'rg-${environmentName}-eastus'
+  name: 'rg-${environmentName}-centralus'
   location: location
   tags: tags
 }
@@ -106,13 +106,15 @@ output sshCommand string = 'ssh ${adminUsername}@${ubuntuVM.outputs.publicIpAddr
 output vmResourceId string = ubuntuVM.outputs.vmId
 
 @description('Estimated Monthly Cost')
-output estimatedMonthlyCost string = '$69.46 (if running 24/7)'
+output estimatedMonthlyCost string = '$61.29 (if running 24/7) - Central US'
 
 @description('Cost Breakdown')
 output costBreakdown object = {
-  vmCompute: '$59.67/month (Standard_B2ms)'
+  vmCompute: '$51.50/month (Standard_B2ms - Central US)'
   storage: '$6.14/month (30GB Premium SSD)'
   publicIP: '$3.65/month (Static IP)'
-  total: '$69.46/month'
-  note: 'Costs shown for 24/7 operation. Actual costs depend on usage.'
+  total: '$61.29/month'
+  monthlySavings: '$8.17 compared to East US'
+  annualSavings: '$98.04 by migrating to Central US'
+  note: 'Costs shown for 24/7 operation. Central US offers significant savings.'
 }

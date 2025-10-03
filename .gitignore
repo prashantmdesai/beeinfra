@@ -72,3 +72,7 @@ terraform.tfvars
 *.crt
 *.key
 localhost.*
+
+# Application repositories (managed separately)
+euui/
+beeux-audio-generator/

@@ -2,7 +2,13 @@
 
 ## Overview
 
-This directory contains the Infrastructure as Code (IaC) templates for deploying **dats-beeux-dev-apps** VM (VM2) of the development environment. This VM is configured for application services and uses a **separate disk** and different **availability zone** for redundancy.
+This directory contains the Infrastructure as Code (IaC) templates for deploying **dats-beeux-dev-apps** VM (VM2) of the development environmaz vm stop --resource-group rg-dev-centralus --name dats-beeux-dev-vm2
+
+# Start VM
+az vm start --resource-group rg-dev-centralus --name dats-beeux-dev-vm2
+
+# Check status
+az vm get-instance-view --resource-group rg-dev-centralus --name dats-beeux-dev-vm2is VM is configured for application services and uses a **separate disk** and different **availability zone** for redundancy.
 
 ## 🚫 Important: Disk Sharing Limitation
 
@@ -47,8 +53,8 @@ vm2/
 - **Development Tools**: git, vim, htop, etc.
 
 ### Network Configuration
-- **Resource Group**: rg-dev-eastus (shared with VM1)
-- **VNet**: vnet-dev-eastus (shared with VM1)
+- **Resource Group**: rg-dev-centralus (shared with VM1)
+- **VNet**: vnet-dev-centralus (shared with VM1)
 - **Subnet**: subnet-dev-default (shared with VM1)
 - **NSG**: nsg-dev-ubuntu-vm (shared with VM1)
 - **Public IP**: New static IP (separate from VM1)
@@ -117,7 +123,7 @@ az account set --subscription "f82e8e5e-cf53-4ef7-b717-dacc295d4ee4"
 
 # Deploy VM2
 az deployment sub create \
-  --location eastus \
+  --location centralus \
   --template-file dats-beeux-dev-vm2-main.bicep \
   --parameters adminPassword="YourSecurePassword123!" \
   --name "dats-beeux-dev-vm2-$(date +%Y%m%d-%H%M%S)"
@@ -149,7 +155,7 @@ VM2 will have the same port configuration as VM1:
 ```bash
 # Expand disk to 60GB (example)
 az disk update \
-  --resource-group rg-dev-eastus \
+  --resource-group rg-dev-centralus \
   --name dats-beeux-dev-vm2-osdisk \
   --size-gb 60
 

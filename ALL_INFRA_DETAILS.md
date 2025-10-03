@@ -3,9 +3,9 @@
 ## 📋 Overview
 This document contains complete details of all components, services, DNS names, and access points for the DATS-BEEUX development infrastructure running on Azure.
 
-**Last Updated**: September 28, 2025  
+**Last Updated**: October 2, 2025  
 **Environment**: Development  
-**Region**: East US  
+**Region**: Central US  
 **Architecture**: Multi-VM Kubernetes + Infrastructure Services
 
 ---
@@ -15,15 +15,15 @@ This document contains complete details of all components, services, DNS names, 
 ### **Virtual Machines**
 | VM Name | Role | Public IP | Private IP | Zone | Size | Status |
 |---------|------|-----------|------------|------|------|--------|
-| `dats-beeux-dev-data` | Infrastructure Services | `172.178.13.46` | `10.0.1.4` | Zone 1 | Standard_B2ms | ✅ Running |
-| `dats-beeux-dev-apps` | Kubernetes Applications | `20.124.235.183` | `10.0.1.5` | Zone 1 | Standard_B4ms | ✅ Running |
+| `dats-beeux-dev-data` | Infrastructure Services | `52.182.154.41` | `10.0.1.4` | Zone 1 | Standard_B2ms | ✅ Running |
+| `dats-beeux-dev-apps` | Kubernetes Applications | `52.230.252.48` | `10.0.1.5` | Zone 1 | Standard_B4ms | ✅ Running |
 
 ### **Network Configuration**
-- **Resource Group**: `rg-dev-eastus`
-- **Virtual Network**: `vnet-dev-eastus`
+- **Resource Group**: `rg-dev-centralus`
+- **Virtual Network**: `vnet-dev-centralus`
 - **Subnet**: `subnet-dev-default` (10.0.1.0/24)
 - **Private DNS Zone**: `dats-beeux-dev.internal`
-- **Shared Storage**: `stdatsbeeuxdevshared` (Azure Files)
+- **Shared Storage**: `stdatsbeeuxdevcus5309` (Azure Files)
 
 ---
 
@@ -47,10 +47,10 @@ This document contains complete details of all components, services, DNS names, 
 ## 🗄️ **DATA VM (dats-beeux-dev-data) - Infrastructure Services**
 
 ### **VM Details**
-- **Public IP**: `172.178.13.46`
+- **Public IP**: `52.182.154.41`
 - **Private IP**: `10.0.1.4`
 - **Internal FQDN**: `dats-beeux-dev-data.dats-beeux-dev.internal`
-- **SSH Access**: `ssh <username>@172.178.13.46`
+- **SSH Access**: `ssh <username>@52.182.154.41`
 - **Password**: `<password>`
 
 ### **Running Services**
@@ -58,50 +58,50 @@ This document contains complete details of all components, services, DNS names, 
 #### **📊 Database Services**
 | Service | Internal FQDN | Port(s) | External Access | Purpose |
 |---------|---------------|---------|-----------------|---------|
-| **PostgreSQL Primary** | `wdat-postgresql.dats-beeux-dev.internal` | `5432` | `psql -h 172.178.13.46 -p 5432 -U <username>` | Main Database |
-| **PostgreSQL Replica 1** | `wdat-postgresql.dats-beeux-dev.internal` | `5433` | `psql -h 172.178.13.46 -p 5433 -U <username>` | Read Replica |
-| **PostgreSQL Replica 2** | `wdat-postgresql.dats-beeux-dev.internal` | `5434` | `psql -h 172.178.13.46 -p 5434 -U <username>` | Read Replica |
+| **PostgreSQL Primary** | `wdat-postgresql.dats-beeux-dev.internal` | `5432` | `psql -h 52.182.154.41 -p 5432 -U <username>` | Main Database |
+| **PostgreSQL Replica 1** | `wdat-postgresql.dats-beeux-dev.internal` | `5433` | `psql -h 52.182.154.41 -p 5433 -U <username>` | Read Replica |
+| **PostgreSQL Replica 2** | `wdat-postgresql.dats-beeux-dev.internal` | `5434` | `psql -h 52.182.154.41 -p 5434 -U <username>` | Read Replica |
 
 #### **🔴 Cache & Session Services**
 | Service | Internal FQDN | Port(s) | External Access | Purpose |
 |---------|---------------|---------|-----------------|---------|
-| **Redis Primary** | `wcac-redis.dats-beeux-dev.internal` | `6379` | `redis-cli -h 172.178.13.46 -p 6379` | Primary Cache |
-| **Redis Replica** | `wcac-redis.dats-beeux-dev.internal` | `6380` | `redis-cli -h 172.178.13.46 -p 6380` | Cache Replica |
+| **Redis Primary** | `wcac-redis.dats-beeux-dev.internal` | `6379` | `redis-cli -h 52.182.154.41 -p 6379` | Primary Cache |
+| **Redis Replica** | `wcac-redis.dats-beeux-dev.internal` | `6380` | `redis-cli -h 52.182.154.41 -p 6380` | Cache Replica |
 | **Redis Cluster Manager** | `wcac-redis.dats-beeux-dev.internal` | `26379-26381` | Internal cluster management | Cluster Coordination |
 
 #### **🐰 Message Broker Services**
 | Service | Internal FQDN | Port(s) | External Access | Purpose |
 |---------|---------------|---------|-----------------|---------|
 | **RabbitMQ AMQP** | `weda-rabbitmq.dats-beeux-dev.internal` | `5672-5674` | AMQP client connection | Message Broker |
-| **RabbitMQ Management** | `weda-rabbitmq.dats-beeux-dev.internal` | `15672-15674` | http://172.178.13.46:15672 | Web Management UI |
+| **RabbitMQ Management** | `weda-rabbitmq.dats-beeux-dev.internal` | `15672-15674` | http://52.182.154.41:15672 | Web Management UI |
 
 #### **🔐 Security & Configuration Services**
 | Service | Internal FQDN | Port(s) | External Access | Purpose |
 |---------|---------------|---------|-----------------|---------|
-| **HashiCorp Vault** | `scsm-vault.dats-beeux-dev.internal` | `8200,8201` | https://172.178.13.46:8200 | Secrets Management |
-| **Config Server** | `sccm-config-server.dats-beeux-dev.internal` | `8888,8889` | http://172.178.13.46:8888 | Configuration Service |
+| **HashiCorp Vault** | `scsm-vault.dats-beeux-dev.internal` | `8200,8201` | https://52.182.154.41:8200 | Secrets Management |
+| **Config Server** | `sccm-config-server.dats-beeux-dev.internal` | `8888,8889` | http://52.182.154.41:8888 | Configuration Service |
 
 #### **📈 Monitoring & Admin Services**
 | Service | Port | External Access | Purpose |
 |---------|------|-----------------|---------|
-| **Redis Admin** | `8083` | http://172.178.13.46:8083 | Redis Management UI |
-| **HAProxy Stats** | `8404` | http://172.178.13.46:8404 | Load Balancer Statistics |
-| **Admin Console** | `8888` | http://172.178.13.46:8888 | Primary Admin Interface |
-| **Secondary Admin** | `8889` | http://172.178.13.46:8889 | Secondary Admin Interface |
-| **Prometheus** | `9090` | http://172.178.13.46:9090 | Metrics Collection |
-| **Monitoring Service** | `9121` | http://172.178.13.46:9121 | System Monitoring |
-| **Debug Interface** | `9419` | http://172.178.13.46:9419 | Debug Console |
-| **System Monitor** | `9999` | http://172.178.13.46:9999 | System Health Monitor |
+| **Redis Admin** | `8083` | http://52.182.154.41:8083 | Redis Management UI |
+| **HAProxy Stats** | `8404` | http://52.182.154.41:8404 | Load Balancer Statistics |
+| **Admin Console** | `8888` | http://52.182.154.41:8888 | Primary Admin Interface |
+| **Secondary Admin** | `8889` | http://52.182.154.41:8889 | Secondary Admin Interface |
+| **Prometheus** | `9090` | http://52.182.154.41:9090 | Metrics Collection |
+| **Monitoring Service** | `9121` | http://52.182.154.41:9121 | System Monitoring |
+| **Debug Interface** | `9419` | http://52.182.154.41:9419 | Debug Console |
+| **System Monitor** | `9999` | http://52.182.154.41:9999 | System Health Monitor |
 
 ---
 
 ## 🚀 **APPS VM (dats-beeux-dev-apps) - Kubernetes Platform**
 
 ### **VM Details**
-- **Public IP**: `20.124.235.183`
+- **Public IP**: `52.230.252.48`
 - **Private IP**: `10.0.1.5`
 - **Internal FQDN**: `dats-beeux-dev-apps.dats-beeux-dev.internal`
-- **SSH Access**: `ssh <username>@20.124.235.183`
+- **SSH Access**: `ssh <username>@52.230.252.48`
 - **Password**: `<password>`
 - **Kubernetes**: Minikube v1.28.3 on `192.168.49.2`
 
@@ -109,19 +109,19 @@ This document contains complete details of all components, services, DNS names, 
 
 #### **Primary Gateway (NGLB - Nginx Gateway Load Balancer)**
 ```
-✅ **HTTPS Gateway**: https://20.124.235.183:8443
-✅ **HTTP Gateway**:  http://20.124.235.183:8080
+✅ **HTTPS Gateway**: https://52.230.252.48:8443
+✅ **HTTP Gateway**:  http://52.230.252.48:8080
 ```
 
 #### **🎯 Application Access Routes (via NGLB)**
 | Application | URL | Purpose |
 |-------------|-----|---------|
-| **WEUI (End User Interface)** | https://20.124.235.183:8443/ | Main User Application |
-| **WAUI (Admin Interface)** | https://20.124.235.183:8443/admin/ | Administrative Dashboard |
-| **SWAG (API Documentation)** | https://20.124.235.183:8443/docs/ | API Documentation |
-| **API Gateway** | https://20.124.235.183:8443/api/ | REST API Endpoints |
-| **Security Gateway** | https://20.124.235.183:8443/gateway/ | Security Services |
-| **Keycloak Authentication** | https://20.124.235.183:8443/auth/ | User Authentication |
+| **WEUI (End User Interface)** | https://52.230.252.48:8443/ | Main User Application |
+| **WAUI (Admin Interface)** | https://52.230.252.48:8443/admin/ | Administrative Dashboard |
+| **SWAG (API Documentation)** | https://52.230.252.48:8443/docs/ | API Documentation |
+| **API Gateway** | https://52.230.252.48:8443/api/ | REST API Endpoints |
+| **Security Gateway** | https://52.230.252.48:8443/gateway/ | Security Services |
+| **Keycloak Authentication** | https://52.230.252.48:8443/auth/ | User Authentication |
 
 ### **🔧 Kubernetes Internal Services**
 
@@ -150,8 +150,8 @@ This document contains complete details of all components, services, DNS names, 
 #### **Ingress Controllers**
 | Service | Type | External Access | Internal IP | Purpose |
 |---------|------|-----------------|-------------|---------|
-| **Primary Ingress** | NodePort | `http://20.124.235.183:32680`, `https://20.124.235.183:30603` | `10.101.131.5` | Standard Ingress |
-| **NGLB External** | NodePort | `http://20.124.235.183:30080`, `https://20.124.235.183:30443` | `10.110.45.232` | NGLB External Access |
+| **Primary Ingress** | NodePort | `http://52.230.252.48:32680`, `https://52.230.252.48:30603` | `10.101.131.5` | Standard Ingress |
+| **NGLB External** | NodePort | `http://52.230.252.48:30080`, `https://52.230.252.48:30443` | `10.110.45.232` | NGLB External Access |
 
 ---
 
@@ -195,49 +195,49 @@ NodePorts: 30000-32767
 #### **Web Interfaces**
 ```bash
 # Main Application
-curl https://20.124.235.183:8443/
+curl https://52.230.252.48:8443/
 
 # Admin Interface
-curl https://20.124.235.183:8443/admin/
+curl https://52.230.252.48:8443/admin/
 
 # API Documentation
-curl https://20.124.235.183:8443/docs/
+curl https://52.230.252.48:8443/docs/
 
 # Vault Management
-curl https://172.178.13.46:8200
+curl https://52.182.154.41:8200
 
 # RabbitMQ Management
-curl http://172.178.13.46:15672
+curl http://52.182.154.41:15672
 
 # Redis Admin
-curl http://172.178.13.46:8083
+curl http://52.182.154.41:8083
 
 # HAProxy Stats
-curl http://172.178.13.46:8404
+curl http://52.182.154.41:8404
 ```
 
 #### **Database Connections**
 ```bash
 # PostgreSQL Primary
-psql -h 172.178.13.46 -p 5432 -U <username> -d postgres
+psql -h 52.182.154.41 -p 5432 -U <username> -d postgres
 
 # PostgreSQL Replica
-psql -h 172.178.13.46 -p 5433 -U <username> -d postgres
+psql -h 52.182.154.41 -p 5433 -U <username> -d postgres
 
 # Redis Primary
-redis-cli -h 172.178.13.46 -p 6379
+redis-cli -h 52.182.154.41 -p 6379
 
 # Redis Replica
-redis-cli -h 172.178.13.46 -p 6380
+redis-cli -h 52.182.154.41 -p 6380
 ```
 
 #### **SSH Access**
 ```bash
 # Data VM
-ssh <username>@172.178.13.46
+ssh <username>@52.182.154.41
 
 # Apps VM
-ssh <username>@20.124.235.183
+ssh <username>@52.230.252.48
 ```
 
 ### **From Within Infrastructure (Internal Access)**
@@ -293,16 +293,16 @@ Internet → Azure Load Balancer → NSG → VMs
 ### **Useful Commands**
 ```bash
 # Check service status on Data VM
-ssh <username>@172.178.13.46 "ss -tlnp | grep LISTEN"
+ssh <username>@52.182.154.41 "ss -tlnp | grep LISTEN"
 
 # Check Kubernetes services
-ssh <username>@20.124.235.183 "kubectl get services --all-namespaces"
+ssh <username>@52.230.252.48 "kubectl get services --all-namespaces"
 
 # Check port-forward status
-ssh <username>@20.124.235.183 "ps aux | grep port-forward"
+ssh <username>@52.230.252.48 "ps aux | grep port-forward"
 
 # Test internal connectivity
-ssh <username>@20.124.235.183 "curl -I http://192.168.49.2:31765"
+ssh <username>@52.230.252.48 "curl -I http://192.168.49.2:31765"
 ```
 
 ### **Port Forward Management**

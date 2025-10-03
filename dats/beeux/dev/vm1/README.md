@@ -26,7 +26,7 @@ dats/beeux/dev/vm1/
 ### VM Configuration
 - **VM Size**: Standard_B2ms (2 vCPU, 8GB RAM) - **upgraded from B2s**
 - **OS**: Ubuntu 24.04 LTS (existing disk)
-- **Zone**: Zone 2 (matches existing VM)
+- **Zone**: Zone 1 (updated from Zone 2)
 - **Identity**: SystemAssigned managed identity
 - **Security**: TrustedLaunch with SecureBoot and vTPM
 
@@ -116,7 +116,7 @@ chmod +x scripts/deploy-with-disk-reuse.sh
    az deployment sub create \
      --template-file dats-beeux-dev-vm1-main.bicep \
      --parameters dats-beeux-dev-vm1-parameters.json \
-     --location eastus \
+     --location centralus \
      --name "dats-beeux-dev-$(date +%Y%m%d-%H%M%S)"
    ```
 
@@ -129,13 +129,13 @@ Validate templates before deployment:
 az deployment sub validate \
   --template-file dats-beeux-dev-vm1-main.bicep \
   --parameters dats-beeux-dev-vm1-parameters.json \
-  --location eastus
+  --location centralus
 
 # Test what-if deployment
 az deployment sub what-if \
   --template-file dats-beeux-dev-vm1-main.bicep \
   --parameters dats-beeux-dev-vm1-parameters.json \
-  --location eastus
+  --location centralus
 ```
 
 ## 📋 Configuration Details
@@ -144,7 +144,7 @@ az deployment sub what-if \
 
 | Parameter | Value | Description |
 |-----------|-------|-------------|
-| `location` | `eastus` | Deployment region |
+| `location` | `centralus` | Deployment region |
 | `vmName` | `dats-beeux-dev` | New VM name |
 | `adminUsername` | `beeuser` | Admin username |
 | `vmSize` | `Standard_B2ms` | **Upgraded** VM size (8GB RAM) |
@@ -156,7 +156,7 @@ az deployment sub what-if \
 
 | Resource Type | Name | Description |
 |---------------|------|-------------|
-| Resource Group | `rg-dev-eastus` | Target resource group |
+| Resource Group | `rg-dev-centralus` | Target resource group |
 | Virtual Machine | `dats-beeux-dev` | New VM instance |
 | Public IP | `pip-dats-beeux-dev` | Static public IP |
 | Network Interface | `nic-dats-beeux-dev` | VM network interface |

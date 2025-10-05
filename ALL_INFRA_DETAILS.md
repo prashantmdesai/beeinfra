@@ -1,4 +1,9 @@
-# 🏗️ Complete Infrastructure Documentation
+# 🏗️ Complete### **Virtual Machines**
+| VM Name | Role | Public IP | Private IP | Zone | Size | Status |
+|---------|------|-----------|------------|------|------|
+| `dats-beeux-dev-data` | Infrastructure Services | `52.182.154.41` | `10.0.1.4` | Zone 1 | Standard_B2ms | ✅ Running |
+| `dats-beeux-dev-apps` | Kubernetes Applications | `52.230.252.48` | `10.0.1.5` | Zone 1 | Standard_B4ms | ✅ Running |
+| `dats-beeux-infr-dev` | Kubernetes Master Node | `TBD` | `10.0.1.6` | Zone 1 | Standard_B2ms | 🔲 Ready to Deploy |astructure Documentation
 
 ## 📋 Overview
 This document contains complete details of all components, services, DNS names, and access points for the DATS-BEEUX development infrastructure running on Azure.
@@ -34,8 +39,10 @@ This document contains complete details of all components, services, DNS names, 
 |----------|------|------------|-----------|
 | `dats-beeux-dev-data.dats-beeux-dev.internal` | A | `10.0.1.4` | Data VM |
 | `dats-beeux-dev-apps.dats-beeux-dev.internal` | A | `10.0.1.5` | Apps VM |
+| `dats-beeux-infr-dev.dats-beeux-dev.internal` | A | `10.0.1.6` | Infr VM (Master) |
 | `data.dats-beeux-dev.internal` | A | `10.0.1.4` | Data VM (Alias) |
 | `apps.dats-beeux-dev.internal` | A | `10.0.1.5` | Apps VM (Alias) |
+| `infr.dats-beeux-dev.internal` | A | `10.0.1.6` | Infr VM (Alias) |
 | `sccm-config-server.dats-beeux-dev.internal` | A | `10.0.1.4` | Config Server |
 | `scsm-vault.dats-beeux-dev.internal` | A | `10.0.1.4` | HashiCorp Vault |
 | `wcac-redis.dats-beeux-dev.internal` | A | `10.0.1.4` | Redis Cluster |
@@ -242,32 +249,52 @@ ssh <username>@52.230.252.48
 
 ### **From Within Infrastructure (Internal Access)**
 
+#### **Inter-VM Communication (3-VM Cluster)**
+```bash
+# SSH between VMs (all VMs have each other in /etc/hosts)
+ssh beeuser@10.0.1.4  # Data VM (from any VM)
+ssh beeuser@10.0.1.5  # Apps VM (from any VM) 
+ssh beeuser@10.0.1.6  # Infr VM (from any VM)
+
+# Alternative using hostnames
+ssh beeuser@data-vm   # Data VM
+ssh beeuser@apps-vm   # Apps VM
+ssh beeuser@infr-vm   # Infr VM (Master)
+```
+
 #### **Service-to-Service Communication**
 ```bash
-# From Apps VM to Data VM services
+# From any VM to Data VM services
 curl http://scsm-vault.dats-beeux-dev.internal:8200
 curl http://sccm-config-server.dats-beeux-dev.internal:8888
 curl http://wdat-postgresql.dats-beeux-dev.internal:5432
 curl http://wcac-redis.dats-beeux-dev.internal:6379
 
-# Within Kubernetes cluster
+# From any VM to Apps VM Kubernetes services
 curl http://weui-end-user-interface-service.dats-beeux-dev.svc.cluster.local:8080
 curl http://nglb-nginx-service.dats-beeux-dev.svc.cluster.local:80
+
+# Kubernetes API (from any VM to Master VM)
+curl -k https://10.0.1.6:6443/api/v1/nodes
 ```
 
 ---
 
 ## 📊 **Architecture Overview**
 
-### **Production-Grade Design**
+### **3-VM Production-Grade Design**
 ```
-Internet → Azure Load Balancer → NSG → VMs
+Internet → Azure Load Balancer → NSG → 3-VM Cluster (Zone 1)
     ↓
-[Apps VM] → [NGLB Gateway] → [Internal Services]
-    ↓                           ↓
-[Kubernetes Platform]    [External References]
-    ↓                           ↓
-[Application Services]   [Data VM Infrastructure]
+[VM1: Data Services] ← → [VM2: Apps/K8s] ← → [VM3: K8s Master]
+    ↓                        ↓                    ↓
+[PostgreSQL/Redis/      [NGLB Gateway]      [Kubernetes API]
+ Vault/RabbitMQ]         [Application        [Cluster Management]
+                          Services]           [Worker Node Coord]
+    ↓                        ↓                    ↓
+[Infrastructure]  ← → [External References] ← → [CNI/Storage]
+                            ↓
+                    [Shared Azure File Share]
 ```
 
 ### **Key Features**
@@ -290,19 +317,29 @@ Internet → Azure Load Balancer → NSG → VMs
 3. **Kubernetes services not accessible**: Check port-forward status
 4. **Database connection refused**: Verify PostgreSQL is running and accepting connections
 
-### **Useful Commands**
+### **Useful Commands (3-VM Architecture)**
 ```bash
-# Check service status on Data VM
-ssh <username>@52.182.154.41 "ss -tlnp | grep LISTEN"
+# Check service status on Data VM (VM1)
+ssh beeuser@52.182.154.41 "ss -tlnp | grep LISTEN"
 
-# Check Kubernetes services
-ssh <username>@52.230.252.48 "kubectl get services --all-namespaces"
+# Check Kubernetes services on Apps VM (VM2)
+ssh beeuser@52.230.252.48 "kubectl get services --all-namespaces"
 
-# Check port-forward status
-ssh <username>@52.230.252.48 "ps aux | grep port-forward"
+# Check Kubernetes master status on Infr VM (VM3) 
+ssh beeuser@10.0.1.6 "kubectl get nodes" # After VM3 deployment
 
-# Test internal connectivity
-ssh <username>@52.230.252.48 "curl -I http://192.168.49.2:31765"
+# Test inter-VM connectivity from any VM
+ssh beeuser@10.0.1.4 "ping -c 3 10.0.1.5 && ping -c 3 10.0.1.6"  # From VM1
+ssh beeuser@10.0.1.5 "ping -c 3 10.0.1.4 && ping -c 3 10.0.1.6"  # From VM2
+ssh beeuser@10.0.1.6 "ping -c 3 10.0.1.4 && ping -c 3 10.0.1.5"  # From VM3
+
+# Check Azure File Share mount on all VMs
+ssh beeuser@10.0.1.4 "df -h | grep azure-shared"  # VM1
+ssh beeuser@10.0.1.5 "df -h | grep azure-shared"  # VM2 
+ssh beeuser@10.0.1.6 "df -h | grep azure-shared"  # VM3
+
+# Health check on VM3 (when deployed)
+ssh beeuser@10.0.1.6 "/usr/local/bin/vm-health-check.sh"
 ```
 
 ### **Port Forward Management**
@@ -316,20 +353,26 @@ kubectl port-forward --address 0.0.0.0 -n dats-beeux-dev svc/nglb-nginx-service 
 
 ## 📝 **Maintenance Notes**
 
-### **Infrastructure State**
-- All VMs deployed in **Zone 1** (migrated from Zone 2)
+### **Infrastructure State (3-VM Architecture)**
+- All VMs deployed in **Zone 1** for minimum latency
+- Identical software stacks: Ubuntu 22.04, Docker, Kubernetes 1.28.3, Node.js 18.19.1, Python 3.12
+- Azure File Share auto-mounted on all VMs (`/mnt/azure-shared`)
+- Inter-VM communication configured (SSH keys, /etc/hosts, firewall rules)
+- Shared NSG allows full communication between VMs
 - Security vulnerabilities fixed (no hardcoded credentials)
-- UFW firewall disabled for external access
-- IP forwarding enabled for NodePort access
-- Shared storage properly mounted
 
-### **Recent Changes**
+### **Recent Changes (October 4, 2025)**
+- ✅ **Added VM3 (dats-beeux-infr-dev)** - Kubernetes Master Node
+- ✅ **3-VM Architecture**: Data Services + Apps/K8s + Master Node
+- ✅ **Zone 1 Deployment**: All VMs co-located for minimum latency
+- ✅ **Identical Software Stacks**: Standardized across all VMs
+- ✅ **Azure File Share Integration**: Auto-mount on boot for all VMs  
+- ✅ **Inter-VM Communication**: Full mesh connectivity configured
 - ✅ Migrated VMs from Zone 2 to Zone 1
 - ✅ Fixed Azure Files security (removed hardcoded access key)
-- ✅ Configured comprehensive NSG rules for laptop access
+- ✅ Configured comprehensive NSG rules for laptop and WiFi access
 - ✅ Set up production-grade NGLB with multi-replica support
-- ✅ Enabled external access via kubectl port-forward
-- ✅ **Upgraded Apps VM to Standard_B4ms (4 vCPU, 16GB RAM)** - September 28, 2025
+- ✅ Upgraded Apps VM to Standard_B4ms (4 vCPU, 16GB RAM)
 
 ### **Backup & Recovery**
 - VM snapshots taken before zone migration

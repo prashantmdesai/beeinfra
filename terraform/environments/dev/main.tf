@@ -124,9 +124,12 @@ module "vm1_infr1" {
     storage_access_key   = module.storage.primary_access_key
     mount_path           = "/mnt/${var.file_share_name}"
     # GitHub
-    github_pat           = var.github_pat
-    github_infra_repo    = var.github_infra_repo
-    github_infra_path    = var.github_infra_path
+    github_pat             = var.github_pat
+    github_infra_repo      = var.github_infra_repo
+    github_infra_path      = var.github_infra_path
+    github_infra_cnf_repo  = var.github_infra_cnf_repo
+    github_beecommons_repo = var.github_beecommons_repo
+    github_shaf_data_path  = var.github_shaf_data_path
     # Kubernetes
     k8s_version          = var.k8s_version
     k8s_pod_cidr         = var.k8s_pod_cidr

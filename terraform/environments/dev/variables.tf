@@ -142,6 +142,24 @@ variable "github_infra_path" {
   default     = "/home/beeuser/plt"
 }
 
+variable "github_infra_cnf_repo" {
+  description = "GitHub infrastructure configuration repository URL"
+  type        = string
+  default     = "https://github.com/prashantmdesai/infra-cnf"
+}
+
+variable "github_beecommons_repo" {
+  description = "GitHub beecommons repository URL"
+  type        = string
+  default     = "https://github.com/prashantmdesai/beecommons"
+}
+
+variable "github_shaf_data_path" {
+  description = "Path to SHAF data directory where additional repos will be cloned"
+  type        = string
+  default     = "/mnt/dats-beeux-dev-shaf-afs/data"
+}
+
 # -----------------------------------------------------------------------------
 # VM1 - MASTER NODE (INFRASTRUCTURE)
 # -----------------------------------------------------------------------------

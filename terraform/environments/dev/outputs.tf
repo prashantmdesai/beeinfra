@@ -89,9 +89,14 @@ output "vm1_ssh_connection" {
   value       = module.vm1_infr1.ssh_connection_string
 }
 
-output "vm1_ssh_private_key_path" {
-  description = "Path to VM1 SSH private key"
-  value       = module.vm1_infr1.ssh_private_key_path
+output "ssh_private_key_path" {
+  description = "Path to the SSH private key (shared by all VMs)"
+  value       = module.ssh_key.private_key_path
+}
+
+output "ssh_public_key_path" {
+  description = "Path to the SSH public key (shared by all VMs)"
+  value       = module.ssh_key.public_key_path
 }
 
 # -----------------------------------------------------------------------------

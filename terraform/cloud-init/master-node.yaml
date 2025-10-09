@@ -61,10 +61,9 @@ write_files:
       STORAGE_ACCESS_KEY=${storage_access_key}
       MOUNT_POINT=/mnt/${file_share_name}
 
-  # GitHub credentials
+  # GitHub credentials (owner will be set in runcmd after user creation)
   - path: /home/${admin_username}/.github-credentials
     permissions: '0600'
-    owner: ${admin_username}:${admin_username}
     content: |
       GITHUB_PAT=${github_pat}
       GITHUB_INFRA_REPO=${github_infra_repo}
@@ -367,6 +366,9 @@ write_files:
 
 # Run commands
 runcmd:
+  # Fix file ownership (user is created by Azure before runcmd)
+  - chown ${admin_username}:${admin_username} /home/${admin_username}/.github-credentials
+  
   # Set environment variables globally
   - echo "export ORGNM=${org_name}" >> /etc/profile.d/platform.sh
   - echo "export PLTNM=${platform_name}" >> /etc/profile.d/platform.sh

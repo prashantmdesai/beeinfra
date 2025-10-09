@@ -39,6 +39,9 @@ resource "azurerm_subnet" "main" {
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = [var.subnet_address_prefix]
+  
+  # Service endpoints required for storage account network rules
+  service_endpoints = ["Microsoft.Storage"]
 }
 
 # Network Security Group

@@ -5,6 +5,18 @@
 # =============================================================================
 
 # -----------------------------------------------------------------------------
+# SSH KEY PAIR (Generated once, shared by all VMs)
+# -----------------------------------------------------------------------------
+
+module "ssh_key" {
+  source = "../../modules/ssh-key-pair"
+
+  key_name     = "${var.org_name}-${var.platform_name}-${var.vm1_name}"
+  save_locally = true
+  output_path  = "${path.root}/ssh-keys"
+}
+
+# -----------------------------------------------------------------------------
 # RESOURCE GROUP
 # -----------------------------------------------------------------------------
 
@@ -96,21 +108,30 @@ module "vm1_infr1" {
   subnet_id = module.networking.subnet_id
   nsg_id    = module.networking.nsg_id
 
-  admin_username       = var.admin_username
-  ssh_public_key       = var.ssh_public_key
-  save_ssh_key_locally = true
+  admin_username = var.admin_username
+  ssh_public_key = module.ssh_key.public_key_openssh
 
   cloud_init_data = templatefile("${path.module}/../../cloud-init/master-node.yaml", {
+    # VM specific
+    vm_name              = var.vm1_name
+    vm_role              = var.vm1_role
+    vm_components        = var.vm1_components
+    vm_private_ip        = var.vm1_private_ip
+    admin_username       = var.admin_username
+    # Storage
     storage_account_name = module.storage.storage_account_name
     file_share_name      = module.storage.file_share_name
     storage_access_key   = module.storage.primary_access_key
     mount_path           = "/mnt/${var.file_share_name}"
+    # GitHub
     github_pat           = var.github_pat
     github_infra_repo    = var.github_infra_repo
     github_infra_path    = var.github_infra_path
+    # Kubernetes
     k8s_version          = var.k8s_version
     k8s_pod_cidr         = var.k8s_pod_cidr
     k8s_cni              = var.k8s_cni
+    # Organization
     org_name             = var.org_name
     platform_name        = var.platform_name
     env_name             = var.env_name
@@ -143,17 +164,25 @@ module "vm2_secu1" {
   subnet_id = module.networking.subnet_id
   nsg_id    = module.networking.nsg_id
 
-  admin_username       = var.admin_username
-  ssh_public_key       = module.vm1_infr1.ssh_public_key  # Use same key as master
-  save_ssh_key_locally = false
+  admin_username = var.admin_username
+  ssh_public_key = module.ssh_key.public_key_openssh  # Use same key as master
 
   cloud_init_data = templatefile("${path.module}/../../cloud-init/worker-node.yaml", {
+    # VM specific
+    vm_name              = var.vm2_name
+    vm_role              = var.vm2_role
+    vm_components        = var.vm2_components
+    vm_private_ip        = var.vm2_private_ip
+    admin_username       = var.admin_username
+    # Storage
     storage_account_name = module.storage.storage_account_name
     file_share_name      = module.storage.file_share_name
     storage_access_key   = module.storage.primary_access_key
     mount_path           = "/mnt/${var.file_share_name}"
+    # Kubernetes
     master_ip            = module.vm1_infr1.private_ip
     k8s_version          = var.k8s_version
+    # Organization
     org_name             = var.org_name
     platform_name        = var.platform_name
     env_name             = var.env_name
@@ -186,17 +215,25 @@ module "vm3_apps1" {
   subnet_id = module.networking.subnet_id
   nsg_id    = module.networking.nsg_id
 
-  admin_username       = var.admin_username
-  ssh_public_key       = module.vm1_infr1.ssh_public_key  # Use same key as master
-  save_ssh_key_locally = false
+  admin_username = var.admin_username
+  ssh_public_key = module.ssh_key.public_key_openssh  # Use same key as master
 
   cloud_init_data = templatefile("${path.module}/../../cloud-init/worker-node.yaml", {
+    # VM specific
+    vm_name              = var.vm3_name
+    vm_role              = var.vm3_role
+    vm_components        = var.vm3_components
+    vm_private_ip        = var.vm3_private_ip
+    admin_username       = var.admin_username
+    # Storage
     storage_account_name = module.storage.storage_account_name
     file_share_name      = module.storage.file_share_name
     storage_access_key   = module.storage.primary_access_key
     mount_path           = "/mnt/${var.file_share_name}"
+    # Kubernetes
     master_ip            = module.vm1_infr1.private_ip
     k8s_version          = var.k8s_version
+    # Organization
     org_name             = var.org_name
     platform_name        = var.platform_name
     env_name             = var.env_name
@@ -229,17 +266,25 @@ module "vm4_apps2" {
   subnet_id = module.networking.subnet_id
   nsg_id    = module.networking.nsg_id
 
-  admin_username       = var.admin_username
-  ssh_public_key       = module.vm1_infr1.ssh_public_key  # Use same key as master
-  save_ssh_key_locally = false
+  admin_username = var.admin_username
+  ssh_public_key = module.ssh_key.public_key_openssh  # Use same key as master
 
   cloud_init_data = templatefile("${path.module}/../../cloud-init/worker-node.yaml", {
+    # VM specific
+    vm_name              = var.vm4_name
+    vm_role              = var.vm4_role
+    vm_components        = var.vm4_components
+    vm_private_ip        = var.vm4_private_ip
+    admin_username       = var.admin_username
+    # Storage
     storage_account_name = module.storage.storage_account_name
     file_share_name      = module.storage.file_share_name
     storage_access_key   = module.storage.primary_access_key
     mount_path           = "/mnt/${var.file_share_name}"
+    # Kubernetes
     master_ip            = module.vm1_infr1.private_ip
     k8s_version          = var.k8s_version
+    # Organization
     org_name             = var.org_name
     platform_name        = var.platform_name
     env_name             = var.env_name
@@ -272,17 +317,25 @@ module "vm5_data1" {
   subnet_id = module.networking.subnet_id
   nsg_id    = module.networking.nsg_id
 
-  admin_username       = var.admin_username
-  ssh_public_key       = module.vm1_infr1.ssh_public_key  # Use same key as master
-  save_ssh_key_locally = false
+  admin_username = var.admin_username
+  ssh_public_key = module.ssh_key.public_key_openssh  # Use same key as master
 
   cloud_init_data = templatefile("${path.module}/../../cloud-init/worker-node.yaml", {
+    # VM specific
+    vm_name              = var.vm5_name
+    vm_role              = var.vm5_role
+    vm_components        = var.vm5_components
+    vm_private_ip        = var.vm5_private_ip
+    admin_username       = var.admin_username
+    # Storage
     storage_account_name = module.storage.storage_account_name
     file_share_name      = module.storage.file_share_name
     storage_access_key   = module.storage.primary_access_key
     mount_path           = "/mnt/${var.file_share_name}"
+    # Kubernetes
     master_ip            = module.vm1_infr1.private_ip
     k8s_version          = var.k8s_version
+    # Organization
     org_name             = var.org_name
     platform_name        = var.platform_name
     env_name             = var.env_name

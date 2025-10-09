@@ -8,6 +8,12 @@
 hostname: ${vm_name}
 fqdn: ${vm_name}.local
 
+# Create log directory early
+bootcmd:
+  - mkdir -p /logs
+  - chmod 755 /logs
+  - echo "=== Cloud-Init Boot Commands Started at $(date -Iseconds) ===" > /logs/cloud-init-$(date +%Y%m%d-%H%M%S).log
+
 # Configure users
 users:
   - name: ${admin_username}
@@ -69,6 +75,43 @@ write_files:
       GITHUB_INFRA_REPO=${github_infra_repo}
       GITHUB_INFRA_PATH=${github_infra_path}
 
+  # Logging helper functions
+  - path: /usr/local/bin/log-exec
+    permissions: '0755'
+    owner: root:root
+    content: |
+      #!/bin/bash
+      # Usage: log-exec <log-file-name> <command> [args...]
+      # Creates timestamped log file and logs both command and output
+      
+      LOG_NAME="$1"
+      shift
+      TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+      LOG_FILE="/logs/$${LOG_NAME}-$${TIMESTAMP}.log"
+      
+      # Ensure log directory exists
+      mkdir -p /logs
+      
+      # Log the command being executed
+      echo "=====================================" >> "$LOG_FILE"
+      echo "Command: $@" >> "$LOG_FILE"
+      echo "Timestamp: $(date -Iseconds)" >> "$LOG_FILE"
+      echo "=====================================" >> "$LOG_FILE"
+      echo "" >> "$LOG_FILE"
+      
+      # Execute command and capture output
+      "$@" >> "$LOG_FILE" 2>&1
+      EXIT_CODE=$?
+      
+      # Log completion status
+      echo "" >> "$LOG_FILE"
+      echo "=====================================" >> "$LOG_FILE"
+      echo "Exit Code: $EXIT_CODE" >> "$LOG_FILE"
+      echo "Completed: $(date -Iseconds)" >> "$LOG_FILE"
+      echo "=====================================" >> "$LOG_FILE"
+      
+      return $EXIT_CODE
+
   # Kubernetes configuration
   - path: /etc/kubernetes-config.conf
     permissions: '0644'
@@ -82,7 +125,30 @@ write_files:
     permissions: '0755'
     content: |
       #!/bin/bash
-      set -e
+      set -euo pipefail
+      
+      # Infrastructure Command Logging Standard - Auto-apply tee to all output
+      TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+      LOG_FILE="/logs/mount-azure-fileshare-$${TIMESTAMP}.log"
+      
+      # Set script start time for duration calculation
+      SCRIPT_START_TIME=$(date +%s)
+      
+      # Ensure logs directory exists
+      mkdir -p /logs
+      
+      # Redirect all output to both console and log file
+      exec > >(tee -a "$LOG_FILE") 2>&1
+      
+      echo "============================================================================="
+      echo "📦 Mount Azure File Share - $(date)"
+      echo "============================================================================="
+      echo "Script: $0"
+      echo "Working Directory: $(pwd)"
+      echo "Log File: $LOG_FILE"
+      echo "User: $(whoami)"
+      echo "============================================================================="
+      echo ""
       
       source /etc/azure-fileshare.conf
       
@@ -115,28 +181,81 @@ write_files:
       
       echo "[$(date)] Azure File Share mounted successfully at $MOUNT_POINT"
       df -h "$MOUNT_POINT"
+      
+      # Calculate script execution duration
+      SCRIPT_END_TIME=$(date +%s)
+      SCRIPT_DURATION=$((SCRIPT_END_TIME - SCRIPT_START_TIME))
+      
+      echo ""
+      echo "============================================================================="
+      echo "✅ Mount Azure File Share - COMPLETED - $(date)"
+      echo "============================================================================="
+      echo "Exit Code: 0"
+      echo "Duration: $${SCRIPT_DURATION}s"
+      echo "============================================================================="
 
   # Docker installation script
   - path: /usr/local/bin/install-docker.sh
     permissions: '0755'
     content: |
       #!/bin/bash
-      set -e
+      set -euo pipefail
       
-      echo "[$(date)] Installing Docker..."
+      # Infrastructure Command Logging Standard - Auto-apply tee to all output
+      TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+      LOG_FILE="/logs/install-docker-$${TIMESTAMP}.log"
+      
+      # Set script start time for duration calculation
+      SCRIPT_START_TIME=$(date +%s)
+      
+      # Ensure logs directory exists
+      mkdir -p /logs
+      
+      # Redirect all output to both console and log file
+      exec > >(tee -a "$LOG_FILE") 2>&1
+      
+      echo "============================================================================="
+      echo "🐳 Install Docker - $(date)"
+      echo "============================================================================="
+      echo "Script: $0"
+      echo "Working Directory: $(pwd)"
+      echo "Log File: $LOG_FILE"
+      echo "User: $(whoami)"
+      echo "============================================================================="
+      echo ""
+      
+      # Function to log command and execute
+      log_and_run() {
+        echo "=====================================" | tee -a "$LOG_FILE"
+        echo "Command: $@" | tee -a "$LOG_FILE"
+        echo "Timestamp: $(date -Iseconds)" | tee -a "$LOG_FILE"
+        echo "=====================================" | tee -a "$LOG_FILE"
+        "$@" 2>&1 | tee -a "$LOG_FILE"
+        local exit_code=$${PIPESTATUS[0]}
+        echo "Exit Code: $exit_code" | tee -a "$LOG_FILE"
+        echo "" | tee -a "$LOG_FILE"
+        return $exit_code
+      }
+      
+      echo "[$(date)] Installing Docker..." | tee -a "$LOG_FILE"
       
       # Add Docker's official GPG key
-      mkdir -p /etc/apt/keyrings
-      curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-      chmod a+r /etc/apt/keyrings/docker.gpg
+      echo "Adding Docker GPG key..." | tee -a "$LOG_FILE"
+      log_and_run mkdir -p /etc/apt/keyrings
+      log_and_run curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /tmp/docker.gpg
+      log_and_run gpg --dearmor -o /etc/apt/keyrings/docker.gpg /tmp/docker.gpg
+      log_and_run chmod a+r /etc/apt/keyrings/docker.gpg
       
       # Add Docker repository
-      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+      echo "Adding Docker repository..." | tee -a "$LOG_FILE"
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list >> "$LOG_FILE"
       
       # Install Docker (non-interactive, use new config files)
       export DEBIAN_FRONTEND=noninteractive
-      apt-get update
-      apt-get install -y -o Dpkg::Options::="--force-confnew" docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+      echo "Updating apt cache..." | tee -a "$LOG_FILE"
+      log_and_run apt-get update
+      echo "Installing Docker packages..." | tee -a "$LOG_FILE"
+      log_and_run apt-get install -y -o Dpkg::Options::="--force-confnew" docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
       
       # Configure Docker daemon
       mkdir -p /etc/docker
@@ -152,132 +271,301 @@ write_files:
       EOF
       
       # Configure containerd for Kubernetes
-      echo "[$(date)] Configuring containerd..."
-      mkdir -p /etc/containerd
-      containerd config default > /etc/containerd/config.toml
-      sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+      echo "[$(date)] Configuring containerd..." | tee -a "$LOG_FILE"
+      log_and_run mkdir -p /etc/containerd
+      echo "Generating containerd config..." | tee -a "$LOG_FILE"
+      containerd config default | tee /etc/containerd/config.toml >> "$LOG_FILE"
+      log_and_run sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
       
       # Enable and start services
-      systemctl enable containerd
+      echo "Enabling and starting services..." | tee -a "$LOG_FILE"
+      log_and_run systemctl enable containerd
       systemctl restart containerd
       systemctl enable docker
-      systemctl daemon-reload
-      systemctl restart docker
+      log_and_run systemctl daemon-reload
+      log_and_run systemctl restart docker
       
       # Verify containerd is running
+      echo "Waiting for services to start..." | tee -a "$LOG_FILE"
       sleep 5
-      systemctl status containerd --no-pager
+      log_and_run systemctl status containerd --no-pager
       
       # Add user to docker group
-      usermod -aG docker ${admin_username}
+      echo "Adding user to docker group..." | tee -a "$LOG_FILE"
+      log_and_run usermod -aG docker ${admin_username}
       
-      echo "[$(date)] Docker and containerd installed successfully"
-      docker --version
-      containerd --version
+      echo "[$(date)] Docker and containerd installed successfully" | tee -a "$LOG_FILE"
+      log_and_run docker --version
+      log_and_run containerd --version
+      
+      # Calculate script execution duration
+      SCRIPT_END_TIME=$(date +%s)
+      SCRIPT_DURATION=$((SCRIPT_END_TIME - SCRIPT_START_TIME))
+      
+      echo ""
+      echo "============================================================================="
+      echo "✅ Install Docker - COMPLETED - $(date)"
+      echo "============================================================================="
+      echo "Exit Code: 0"
+      echo "Duration: $${SCRIPT_DURATION}s"
+      echo "============================================================================="
 
   # Kubernetes installation script
   - path: /usr/local/bin/install-kubernetes.sh
     permissions: '0755'
     content: |
       #!/bin/bash
-      set -e
+      set -euo pipefail
       
       source /etc/kubernetes-config.conf
       
-      echo "[$(date)] Installing Kubernetes $K8S_VERSION..."
+      # Infrastructure Command Logging Standard - Auto-apply tee to all output
+      TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+      LOG_FILE="/logs/install-kubernetes-$${TIMESTAMP}.log"
+      
+      # Set script start time for duration calculation
+      SCRIPT_START_TIME=$(date +%s)
+      
+      # Ensure logs directory exists
+      mkdir -p /logs
+      
+      # Redirect all output to both console and log file
+      exec > >(tee -a "$LOG_FILE") 2>&1
+      
+      echo "============================================================================="
+      echo "☸️  Install Kubernetes - $(date)"
+      echo "============================================================================="
+      echo "Script: $0"
+      echo "Working Directory: $(pwd)"
+      echo "Log File: $LOG_FILE"
+      echo "User: $(whoami)"
+      echo "Kubernetes Version: $K8S_VERSION"
+      echo "============================================================================="
+      echo ""
+      
+      # Function to log command and execute
+      log_and_run() {
+        echo "=====================================" | tee -a "$LOG_FILE"
+        echo "Command: $@" | tee -a "$LOG_FILE"
+        echo "Timestamp: $(date -Iseconds)" | tee -a "$LOG_FILE"
+        echo "=====================================" | tee -a "$LOG_FILE"
+        "$@" 2>&1 | tee -a "$LOG_FILE"
+        local exit_code=$${PIPESTATUS[0]}
+        echo "Exit Code: $exit_code" | tee -a "$LOG_FILE"
+        echo "" | tee -a "$LOG_FILE"
+        return $exit_code
+      }
+      
+      echo "[$(date)] Installing Kubernetes $K8S_VERSION..." | tee -a "$LOG_FILE"
       
       # Disable swap
-      swapoff -a
-      sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+      echo "Disabling swap..." | tee -a "$LOG_FILE"
+      log_and_run swapoff -a
+      log_and_run sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
       
       # Load required kernel modules
+      echo "Configuring kernel modules..." | tee -a "$LOG_FILE"
       cat > /etc/modules-load.d/k8s.conf <<EOF
       overlay
       br_netfilter
       EOF
       
-      modprobe overlay
-      modprobe br_netfilter
+      log_and_run modprobe overlay
+      log_and_run modprobe br_netfilter
       
       # Configure sysctl
+      echo "Configuring sysctl..." | tee -a "$LOG_FILE"
       cat > /etc/sysctl.d/k8s.conf <<EOF
       net.bridge.bridge-nf-call-iptables  = 1
       net.bridge.bridge-nf-call-ip6tables = 1
       net.ipv4.ip_forward                 = 1
       EOF
       
-      sysctl --system
+      log_and_run sysctl --system
       
       # Add Kubernetes repository
-      mkdir -p /etc/apt/keyrings
-      curl -fsSL https://pkgs.k8s.io/core:/stable:/v$K8S_VERSION/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-      echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$K8S_VERSION/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
+      echo "Adding Kubernetes repository..." | tee -a "$LOG_FILE"
+      log_and_run mkdir -p /etc/apt/keyrings
+      log_and_run curl -fsSL https://pkgs.k8s.io/core:/stable:/v$K8S_VERSION/deb/Release.key -o /tmp/k8s.key
+      log_and_run gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg /tmp/k8s.key
+      echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$K8S_VERSION/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list >> "$LOG_FILE"
       
       # Install Kubernetes components (non-interactive)
       export DEBIAN_FRONTEND=noninteractive
-      apt-get update
-      apt-get install -y -o Dpkg::Options::="--force-confnew" kubelet kubeadm kubectl
-      apt-mark hold kubelet kubeadm kubectl
+      echo "Updating apt cache..." | tee -a "$LOG_FILE"
+      log_and_run apt-get update
+      echo "Installing Kubernetes components..." | tee -a "$LOG_FILE"
+      log_and_run apt-get install -y -o Dpkg::Options::="--force-confnew" kubelet kubeadm kubectl
+      log_and_run apt-mark hold kubelet kubeadm kubectl
       
       # Enable kubelet
-      systemctl enable kubelet
+      echo "Enabling kubelet..." | tee -a "$LOG_FILE"
+      log_and_run systemctl enable kubelet
       
-      echo "[$(date)] Kubernetes $K8S_VERSION installed successfully"
-      kubeadm version
+      echo "[$(date)] Kubernetes $K8S_VERSION installed successfully" | tee -a "$LOG_FILE"
+      log_and_run kubeadm version
+      
+      # Calculate script execution duration
+      SCRIPT_END_TIME=$(date +%s)
+      SCRIPT_DURATION=$((SCRIPT_END_TIME - SCRIPT_START_TIME))
+      
+      echo ""
+      echo "============================================================================="
+      echo "✅ Install Kubernetes - COMPLETED - $(date)"
+      echo "============================================================================="
+      echo "Exit Code: 0"
+      echo "Duration: $${SCRIPT_DURATION}s"
+      echo "Kubernetes Version: $K8S_VERSION"
+      echo "============================================================================="
 
   # Initialize Kubernetes master script
   - path: /usr/local/bin/init-k8s-master.sh
     permissions: '0755'
     content: |
       #!/bin/bash
-      set -e
+      set -euo pipefail
       
       source /etc/kubernetes-config.conf
       source /etc/azure-fileshare.conf
       
-      echo "[$(date)] Initializing Kubernetes master node..."
+      # Infrastructure Command Logging Standard - Auto-apply tee to all output
+      TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+      LOG_FILE="/logs/init-k8s-master-$${TIMESTAMP}.log"
+      
+      # Set script start time for duration calculation
+      SCRIPT_START_TIME=$(date +%s)
+      
+      # Ensure logs directory exists
+      mkdir -p /logs
+      
+      # Redirect all output to both console and log file
+      exec > >(tee -a "$LOG_FILE") 2>&1
+      
+      echo "============================================================================="
+      echo "🎯 Initialize Kubernetes Master - $(date)"
+      echo "============================================================================="
+      echo "Script: $0"
+      echo "Working Directory: $(pwd)"
+      echo "Log File: $LOG_FILE"
+      echo "User: $(whoami)"
+      echo "Pod CIDR: $K8S_POD_CIDR"
+      echo "============================================================================="
+      echo ""
+      
+      # Function to log command and execute
+      log_and_run() {
+        echo "=====================================" | tee -a "$LOG_FILE"
+        echo "Command: $@" | tee -a "$LOG_FILE"
+        echo "Timestamp: $(date -Iseconds)" | tee -a "$LOG_FILE"
+        echo "=====================================" | tee -a "$LOG_FILE"
+        "$@" 2>&1 | tee -a "$LOG_FILE"
+        local exit_code=$${PIPESTATUS[0]}
+        echo "Exit Code: $exit_code" | tee -a "$LOG_FILE"
+        echo "" | tee -a "$LOG_FILE"
+        return $exit_code
+      }
+      
+      echo "[$(date)] Initializing Kubernetes master node..." | tee -a "$LOG_FILE"
       
       # Initialize cluster
-      kubeadm init --pod-network-cidr=$K8S_POD_CIDR --apiserver-advertise-address=${vm_private_ip} --ignore-preflight-errors=all
+      echo "Running kubeadm init..." | tee -a "$LOG_FILE"
+      log_and_run kubeadm init --pod-network-cidr=$K8S_POD_CIDR --apiserver-advertise-address=${vm_private_ip} --ignore-preflight-errors=all
       
       # Configure kubectl for root
+      echo "Configuring kubectl..." | tee -a "$LOG_FILE"
       export KUBECONFIG=/etc/kubernetes/admin.conf
       
       # Configure kubectl for user
-      mkdir -p /home/${admin_username}/.kube
-      cp /etc/kubernetes/admin.conf /home/${admin_username}/.kube/config
-      chown -R ${admin_username}:${admin_username} /home/${admin_username}/.kube
+      log_and_run mkdir -p /home/${admin_username}/.kube
+      log_and_run cp /etc/kubernetes/admin.conf /home/${admin_username}/.kube/config
+      log_and_run chown -R ${admin_username}:${admin_username} /home/${admin_username}/.kube
       
       # Save join command to file share
-      JOIN_CMD=$(kubeadm token create --print-join-command)
-      echo "$JOIN_CMD" > "$MOUNT_POINT/k8s-join-token/join-command.sh"
+      echo "Creating join token..." | tee -a "$LOG_FILE"
+      JOIN_CMD=$(kubeadm token create --print-join-command 2>&1 | tee -a "$LOG_FILE")
+      echo "$JOIN_CMD" | tee "$MOUNT_POINT/k8s-join-token/join-command.sh" >> "$LOG_FILE"
       chmod 644 "$MOUNT_POINT/k8s-join-token/join-command.sh"
       
       # Save cluster info
+      echo "Saving cluster info..." | tee -a "$LOG_FILE"
+      log_and_run kubectl cluster-info
       kubectl cluster-info > "$MOUNT_POINT/k8s-join-token/cluster-info.txt"
       
-      echo "[$(date)] Kubernetes master initialized successfully"
+      echo "[$(date)] Kubernetes master initialized successfully" | tee -a "$LOG_FILE"
+      
+      # Calculate script execution duration
+      SCRIPT_END_TIME=$(date +%s)
+      SCRIPT_DURATION=$((SCRIPT_END_TIME - SCRIPT_START_TIME))
+      
+      echo ""
+      echo "============================================================================="
+      echo "✅ Initialize Kubernetes Master - COMPLETED - $(date)"
+      echo "============================================================================="
+      echo "Exit Code: 0"
+      echo "Duration: $${SCRIPT_DURATION}s"
+      echo "Pod CIDR: $K8S_POD_CIDR"
+      echo "============================================================================="
 
   # Install Calico CNI script
   - path: /usr/local/bin/install-calico.sh
     permissions: '0755'
     content: |
       #!/bin/bash
-      set -e
+      set -euo pipefail
       
       source /etc/kubernetes-config.conf
       
-      echo "[$(date)] Installing Calico CNI..."
+      # Infrastructure Command Logging Standard - Auto-apply tee to all output
+      TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+      LOG_FILE="/logs/install-calico-$${TIMESTAMP}.log"
+      
+      # Set script start time for duration calculation
+      SCRIPT_START_TIME=$(date +%s)
+      
+      # Ensure logs directory exists
+      mkdir -p /logs
+      
+      # Redirect all output to both console and log file
+      exec > >(tee -a "$LOG_FILE") 2>&1
+      
+      echo "============================================================================="
+      echo "🌐 Install Calico CNI - $(date)"
+      echo "============================================================================="
+      echo "Script: $0"
+      echo "Working Directory: $(pwd)"
+      echo "Log File: $LOG_FILE"
+      echo "User: $(whoami)"
+      echo "CNI: $K8S_CNI"
+      echo "============================================================================="
+      echo ""
+      
+      # Function to log command and execute
+      log_and_run() {
+        echo "=====================================" | tee -a "$LOG_FILE"
+        echo "Command: $@" | tee -a "$LOG_FILE"
+        echo "Timestamp: $(date -Iseconds)" | tee -a "$LOG_FILE"
+        echo "=====================================" | tee -a "$LOG_FILE"
+        "$@" 2>&1 | tee -a "$LOG_FILE"
+        local exit_code=$${PIPESTATUS[0]}
+        echo "Exit Code: $exit_code" | tee -a "$LOG_FILE"
+        echo "" | tee -a "$LOG_FILE"
+        return $exit_code
+      }
+      
+      echo "[$(date)] Installing Calico CNI..." | tee -a "$LOG_FILE"
       
       export KUBECONFIG=/etc/kubernetes/admin.conf
       
       # Install Calico operator
-      kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.27.0/manifests/tigera-operator.yaml
+      echo "Installing Calico operator..." | tee -a "$LOG_FILE"
+      log_and_run kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.27.0/manifests/tigera-operator.yaml
       
       # Wait for operator to be ready
+      echo "Waiting for operator..." | tee -a "$LOG_FILE"
       sleep 30
       
       # Install Calico custom resources
+      echo "Creating Calico custom resources..." | tee -a "$LOG_FILE"
       cat > /tmp/calico-custom-resources.yaml <<EOF
       apiVersion: operator.tigera.io/v1
       kind: Installation
@@ -299,40 +587,107 @@ write_files:
       spec: {}
       EOF
       
-      kubectl apply -f /tmp/calico-custom-resources.yaml
+      log_and_run kubectl apply -f /tmp/calico-custom-resources.yaml
       
-      echo "[$(date)] Calico CNI installation initiated"
-      echo "[$(date)] Waiting for Calico pods to be ready (this may take a few minutes)..."
+      echo "[$(date)] Calico CNI installation initiated" | tee -a "$LOG_FILE"
+      echo "[$(date)] Waiting for Calico pods to be ready (this may take a few minutes)..." | tee -a "$LOG_FILE"
       
       # Wait for Calico pods
-      kubectl wait --for=condition=ready pod -l k8s-app=calico-node -n calico-system --timeout=300s || true
+      log_and_run kubectl wait --for=condition=ready pod -l k8s-app=calico-node -n calico-system --timeout=300s || true
       
-      echo "[$(date)] Calico CNI installed successfully"
+      echo "[$(date)] Calico CNI installed successfully" | tee -a "$LOG_FILE"
+      
+      # Calculate script execution duration
+      SCRIPT_END_TIME=$(date +%s)
+      SCRIPT_DURATION=$((SCRIPT_END_TIME - SCRIPT_START_TIME))
+      
+      echo ""
+      echo "============================================================================="
+      echo "✅ Install Calico CNI - COMPLETED - $(date)"
+      echo "============================================================================="
+      echo "Exit Code: 0"
+      echo "Duration: $${SCRIPT_DURATION}s"
+      echo "CNI: $K8S_CNI"
+      echo "============================================================================="
 
   # Clone infrastructure repository script
   - path: /usr/local/bin/clone-infra-repo.sh
     permissions: '0755'
     content: |
       #!/bin/bash
-      set -e
+      set -euo pipefail
+      
+      # Infrastructure Command Logging Standard - Auto-apply tee to all output
+      TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+      LOG_FILE="/logs/clone-infra-repo-$${TIMESTAMP}.log"
+      
+      # Set script start time for duration calculation
+      SCRIPT_START_TIME=$(date +%s)
+      
+      # Ensure logs directory exists
+      mkdir -p /logs
+      
+      # Redirect all output to both console and log file
+      exec > >(tee -a "$LOG_FILE") 2>&1
+      
+      echo "============================================================================="
+      echo "📚 Clone Infrastructure Repository - $(date)"
+      echo "============================================================================="
+      echo "Script: $0"
+      echo "Working Directory: $(pwd)"
+      echo "Log File: $LOG_FILE"
+      echo "User: $(whoami)"
+      echo "============================================================================="
+      echo ""
+      
+      # Function to log command and execute
+      log_and_run() {
+        echo "=====================================" | tee -a "$LOG_FILE"
+        echo "Command: $@" | tee -a "$LOG_FILE"
+        echo "Timestamp: $(date -Iseconds)" | tee -a "$LOG_FILE"
+        echo "=====================================" | tee -a "$LOG_FILE"
+        "$@" 2>&1 | tee -a "$LOG_FILE"
+        local exit_code=$${PIPESTATUS[0]}
+        echo "Exit Code: $exit_code" | tee -a "$LOG_FILE"
+        echo "" | tee -a "$LOG_FILE"
+        return $exit_code
+      }
       
       source /home/${admin_username}/.github-credentials
       
-      echo "[$(date)] Cloning infrastructure repository..."
+      echo "[$(date)] Cloning infrastructure repository..." | tee -a "$LOG_FILE"
       
-      # Ensure parent directory exists and has proper permissions
-      PARENT_DIR=$(dirname "$GITHUB_INFRA_PATH")
-      mkdir -p "$PARENT_DIR"
-      chown ${admin_username}:${admin_username} "$PARENT_DIR"
+      # Ensure GITHUB_INFRA_PATH directory exists with proper permissions
+      echo "Creating target directory: $GITHUB_INFRA_PATH" | tee -a "$LOG_FILE"
+      log_and_run mkdir -p "$GITHUB_INFRA_PATH"
+      log_and_run chown ${admin_username}:${admin_username} "$GITHUB_INFRA_PATH"
       
-      # Remove existing directory if present
-      rm -rf "$GITHUB_INFRA_PATH"
+      # Remove existing infra subdirectory if present (git will create 'infra' subdirectory)
+      echo "Cleaning existing infra directory..." | tee -a "$LOG_FILE"
+      log_and_run rm -rf "$GITHUB_INFRA_PATH/infra"
       
-      # Clone repository as the user
-      su - ${admin_username} -c "git clone https://$GITHUB_PAT@github.com/prashantmdesai/infra.git $GITHUB_INFRA_PATH"
+      # Clone repository as the user into GITHUB_INFRA_PATH (git creates 'infra' subdirectory from repo name)
+      echo "Cloning repository to $GITHUB_INFRA_PATH..." | tee -a "$LOG_FILE"
+      su - ${admin_username} -c "cd $GITHUB_INFRA_PATH && git clone https://$GITHUB_PAT@github.com/prashantmdesai/infra.git" 2>&1 | tee -a "$LOG_FILE"
       
-      echo "[$(date)] Infrastructure repository cloned to $GITHUB_INFRA_PATH"
-      ls -la "$GITHUB_INFRA_PATH"
+      # Set the actual repository path
+      ACTUAL_REPO_PATH="$GITHUB_INFRA_PATH/infra"
+      
+      echo "[$(date)] Infrastructure repository cloned to $ACTUAL_REPO_PATH" | tee -a "$LOG_FILE"
+      log_and_run ls -la "$ACTUAL_REPO_PATH"
+      
+      # Calculate script execution duration
+      SCRIPT_END_TIME=$(date +%s)
+      SCRIPT_DURATION=$((SCRIPT_END_TIME - SCRIPT_START_TIME))
+      
+      echo ""
+      echo "============================================================================="
+      echo "✅ Clone Infrastructure Repository - COMPLETED - $(date)"
+      echo "============================================================================="
+      echo "Exit Code: 0"
+      echo "Duration: $${SCRIPT_DURATION}s"
+      echo "Repository Path: $ACTUAL_REPO_PATH"
+      echo "============================================================================="
 
   # Master node bootstrap orchestration script
   - path: /usr/local/bin/bootstrap-master.sh
@@ -341,45 +696,71 @@ write_files:
       #!/bin/bash
       set -e
       
-      LOG_FILE="/var/log/bootstrap-master.log"
+      TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+      LOG_FILE="/logs/bootstrap-master-$${TIMESTAMP}.log"
+      SUMMARY_LOG="/logs/bootstrap-summary.log"
       
-      exec > >(tee -a "$LOG_FILE") 2>&1
+      # Ensure log directory exists
+      mkdir -p /logs
       
-      echo "=========================================="
-      echo "[$(date)] Starting master node bootstrap"
-      echo "=========================================="
+      # Function to log and execute with status tracking
+      run_step() {
+        local step_name="$1"
+        local step_script="$2"
+        
+        echo "" | tee -a "$LOG_FILE" "$SUMMARY_LOG"
+        echo "========================================" | tee -a "$LOG_FILE" "$SUMMARY_LOG"
+        echo "STEP: $step_name" | tee -a "$LOG_FILE" "$SUMMARY_LOG"
+        echo "Started: $(date -Iseconds)" | tee -a "$LOG_FILE" "$SUMMARY_LOG"
+        echo "========================================" | tee -a "$LOG_FILE" "$SUMMARY_LOG"
+        
+        if $step_script 2>&1 | tee -a "$LOG_FILE"; then
+          echo "✓ SUCCESS: $step_name completed" | tee -a "$LOG_FILE" "$SUMMARY_LOG"
+          echo "Completed: $(date -Iseconds)" | tee -a "$LOG_FILE" "$SUMMARY_LOG"
+          return 0
+        else
+          local exit_code=$?
+          echo "✗ FAILED: $step_name (exit code: $exit_code)" | tee -a "$LOG_FILE" "$SUMMARY_LOG"
+          echo "Failed: $(date -Iseconds)" | tee -a "$LOG_FILE" "$SUMMARY_LOG"
+          return $exit_code
+        fi
+      }
+      
+      echo "==========================================" | tee -a "$LOG_FILE" "$SUMMARY_LOG"
+      echo "MASTER NODE BOOTSTRAP STARTED" | tee -a "$LOG_FILE" "$SUMMARY_LOG"
+      echo "Timestamp: $(date -Iseconds)" | tee -a "$LOG_FILE" "$SUMMARY_LOG"
+      echo "Hostname: $(hostname)" | tee -a "$LOG_FILE" "$SUMMARY_LOG"
+      echo "==========================================" | tee -a "$LOG_FILE" "$SUMMARY_LOG"
       
       # Step 1: Mount Azure File Share
-      echo "[$(date)] Step 1: Mounting Azure File Share..."
-      /usr/local/bin/mount-azure-fileshare.sh
+      run_step "Mount Azure File Share" /usr/local/bin/mount-azure-fileshare.sh
       
       # Step 2: Install Docker
-      echo "[$(date)] Step 2: Installing Docker..."
-      /usr/local/bin/install-docker.sh
+      run_step "Install Docker" /usr/local/bin/install-docker.sh
       
       # Step 3: Install Kubernetes
-      echo "[$(date)] Step 3: Installing Kubernetes..."
-      /usr/local/bin/install-kubernetes.sh
+      run_step "Install Kubernetes" /usr/local/bin/install-kubernetes.sh
       
       # Step 4: Initialize Kubernetes master
-      echo "[$(date)] Step 4: Initializing Kubernetes master..."
-      /usr/local/bin/init-k8s-master.sh
+      run_step "Initialize Kubernetes Master" /usr/local/bin/init-k8s-master.sh
       
       # Step 5: Install Calico CNI
-      echo "[$(date)] Step 5: Installing Calico CNI..."
-      /usr/local/bin/install-calico.sh
+      run_step "Install Calico CNI" /usr/local/bin/install-calico.sh
       
       # Step 6: Clone infrastructure repository
-      echo "[$(date)] Step 6: Cloning infrastructure repository..."
-      /usr/local/bin/clone-infra-repo.sh
+      run_step "Clone Infrastructure Repository" /usr/local/bin/clone-infra-repo.sh
       
-      echo "=========================================="
-      echo "[$(date)] Master node bootstrap completed"
-      echo "=========================================="
+      echo "" | tee -a "$LOG_FILE" "$SUMMARY_LOG"
+      echo "==========================================" | tee -a "$LOG_FILE" "$SUMMARY_LOG"
+      echo "MASTER NODE BOOTSTRAP COMPLETED" | tee -a "$LOG_FILE" "$SUMMARY_LOG"
+      echo "Timestamp: $(date -Iseconds)" | tee -a "$LOG_FILE" "$SUMMARY_LOG"
+      echo "Hostname: $(hostname)" | tee -a "$LOG_FILE" "$SUMMARY_LOG"
+      echo "==========================================" | tee -a "$LOG_FILE" "$SUMMARY_LOG"
       
-      # Copy log to file share
+      # Copy logs to file share
       source /etc/azure-fileshare.conf
       cp "$LOG_FILE" "$MOUNT_POINT/logs/bootstrap-master-$(hostname)-$(date +%Y%m%d-%H%M%S).log"
+      cp "$SUMMARY_LOG" "$MOUNT_POINT/logs/bootstrap-summary-$(hostname)-$(date +%Y%m%d-%H%M%S).log"
 
 # Run commands
 runcmd:

@@ -36,7 +36,7 @@ This document serves as the **authoritative registry** for all platform componen
 | **4** | **Spring Cloud Gateway Cluster** | **SCGC** | Kubernetes | API Gateway | API gateway and routing |
 | **5** | **PostgreSQL Cluster** | **WDAT** | docker-compose.wdat-postgres-cluster.yml | Database | Primary database cluster (Word Data Access Tier) |
 | **6** | **Redis Cache** | **WCAC** | docker-compose.wcac-redis-cluster.yml | Caching | Distributed caching layer (Word Cache Access Control) |
-| **7** | **RabbitMQ Cluster** | **WEDA** | docker-compose.weda-rabbitmq-cluster.yml | Message Queue | Event processing and messaging (Word Event Distribution Architecture) |
+| **7** | **Kafka Cluster** | **WEDA** |  | Message Queue | Event processing and messaging (Word Event Distribution Architecture) |
 | **8** | **NGINX Load Balancer** | **NGLB** | kubernetes | Load Balancer | HTTP/HTTPS load balancing and reverse proxy |
 | **9** | **Keycloak Authorization Server** | **KIAM** | kubernetes | Authentication | OAuth2 and OpenID Connect (OIDC) authentication, Identity and Access Management|
 | **10** | **Spring Batch + Quartz** | **SCBQ** | kubernetes | Batch Processing | Scheduled batch processing and job scheduling |

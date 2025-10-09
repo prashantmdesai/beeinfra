@@ -1,0 +1,46 @@
+# =============================================================================
+# COMMON TERRAFORM VARIABLES - DEV ENVIRONMENT
+# =============================================================================
+# This file contains values common to all VMs in the dev environment
+# Per-VM specific values are in separate vm*-*.tfvars files
+# =============================================================================
+
+# Organization & Environment
+org_name      = "dats"
+platform_name = "beeux"
+env_name      = "dev"
+location      = "centralus"
+
+# Common Tags
+common_tags = {
+  CostCenter  = "Engineering"
+  Owner       = "Platform Team"
+  Project     = "BeEux Word Learning Platform"
+  Environment = "Development"
+  ManagedBy   = "Terraform"
+}
+
+# Networking
+vnet_address_space    = "10.0.0.0/16"
+subnet_address_prefix = "10.0.1.0/24"
+laptop_ip             = "136.56.79.92/32"
+wifi_cidr             = "136.56.79.0/24"
+
+# Storage
+storage_account_name = "datsbeeuxdevstacct"
+file_share_name      = "dats-beeux-dev-shaf-afs"
+file_share_quota_gb  = 100
+
+# VM Common
+admin_username = "beeuser"
+# ssh_public_key will be auto-generated if not provided
+
+# Kubernetes
+k8s_version  = "1.30"
+k8s_pod_cidr = "192.168.0.0/16"
+k8s_cni      = "calico"
+
+# GitHub
+github_pat        = "your_github_pat_here"
+github_infra_repo = "https://github.com/prashantmdesai/infra"
+github_infra_path = "/home/beeuser/plt"

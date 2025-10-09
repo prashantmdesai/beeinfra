@@ -1,0 +1,173 @@
+# =============================================================================
+# VIRTUAL MACHINE MODULE - VARIABLES
+# =============================================================================
+
+variable "org_name" {
+  description = "Organization name (e.g., dats)"
+  type        = string
+}
+
+variable "platform_name" {
+  description = "Platform name (e.g., beeux)"
+  type        = string
+}
+
+variable "env_name" {
+  description = "Environment name (e.g., dev, sit, uat, prd)"
+  type        = string
+}
+
+variable "location" {
+  description = "Azure region for the VM"
+  type        = string
+  default     = "centralus"
+}
+
+variable "resource_group_name" {
+  description = "Name of the resource group where VM will be created"
+  type        = string
+}
+
+variable "vm_name" {
+  description = "Name of the virtual machine"
+  type        = string
+  
+  validation {
+    condition     = can(regex("^[a-z0-9-]{1,64}$", var.vm_name))
+    error_message = "VM name must be 1-64 characters, lowercase letters, numbers, and hyphens only."
+  }
+}
+
+variable "vm_size" {
+  description = "Azure VM size (e.g., Standard_B2s)"
+  type        = string
+  default     = "Standard_B2s"
+}
+
+variable "vm_disk_size_gb" {
+  description = "OS disk size in GB"
+  type        = number
+  default     = 20
+  
+  validation {
+    condition     = var.vm_disk_size_gb >= 20 && var.vm_disk_size_gb <= 4096
+    error_message = "Disk size must be between 20 and 4096 GB."
+  }
+}
+
+variable "vm_disk_sku" {
+  description = "OS disk SKU (Standard_LRS, StandardSSD_LRS, Premium_LRS)"
+  type        = string
+  default     = "StandardSSD_LRS"
+  
+  validation {
+    condition     = contains(["Standard_LRS", "StandardSSD_LRS", "Premium_LRS", "StandardSSD_ZRS", "Premium_ZRS"], var.vm_disk_sku)
+    error_message = "Disk SKU must be one of: Standard_LRS, StandardSSD_LRS, Premium_LRS, StandardSSD_ZRS, Premium_ZRS."
+  }
+}
+
+variable "vm_private_ip" {
+  description = "Static private IP address for the VM"
+  type        = string
+  
+  validation {
+    condition     = can(cidrhost("${var.vm_private_ip}/32", 0))
+    error_message = "VM private IP must be a valid IP address."
+  }
+}
+
+variable "vm_zone" {
+  description = "Availability zone for the VM (1, 2, or 3). Set to null for no zone."
+  type        = string
+  default     = "1"
+  
+  validation {
+    condition     = var.vm_zone == null || contains(["1", "2", "3"], var.vm_zone)
+    error_message = "VM zone must be null, '1', '2', or '3'."
+  }
+}
+
+variable "vm_role" {
+  description = "Role of the VM (master or worker) for Kubernetes cluster"
+  type        = string
+  
+  validation {
+    condition     = contains(["master", "worker"], var.vm_role)
+    error_message = "VM role must be either 'master' or 'worker'."
+  }
+}
+
+variable "vm_components" {
+  description = "Comma-separated list of components deployed on this VM (e.g., 'WIOR,WCID')"
+  type        = string
+  default     = ""
+}
+
+variable "subnet_id" {
+  description = "ID of the subnet where the VM will be placed"
+  type        = string
+}
+
+variable "nsg_id" {
+  description = "ID of the network security group to associate with the VM's NIC"
+  type        = string
+}
+
+variable "admin_username" {
+  description = "Admin username for the VM"
+  type        = string
+  default     = "beeuser"
+  
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{0,63}$", var.admin_username))
+    error_message = "Admin username must start with lowercase letter, contain only lowercase letters, numbers, and hyphens, max 64 chars."
+  }
+}
+
+variable "ssh_public_key" {
+  description = "SSH public key for VM access. If null, a new key pair will be generated."
+  type        = string
+  default     = null
+}
+
+variable "save_ssh_key_locally" {
+  description = "If true, save generated SSH keys to ssh-keys/ directory (only for Terraform-generated keys)"
+  type        = bool
+  default     = true
+}
+
+variable "cloud_init_data" {
+  description = "Cloud-init configuration data (YAML). Will be base64-encoded automatically."
+  type        = string
+  default     = null
+}
+
+variable "vm_image_publisher" {
+  description = "VM image publisher"
+  type        = string
+  default     = "Canonical"
+}
+
+variable "vm_image_offer" {
+  description = "VM image offer"
+  type        = string
+  default     = "0001-com-ubuntu-server-jammy"
+}
+
+variable "vm_image_sku" {
+  description = "VM image SKU"
+  type        = string
+  default     = "22_04-lts-gen2"
+}
+
+variable "vm_image_version" {
+  description = "VM image version"
+  type        = string
+  default     = "latest"
+}
+
+variable "tags" {
+  description = "Additional tags to apply to VM resources"
+  type        = map(string)
+  default     = {}
+}

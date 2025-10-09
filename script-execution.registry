@@ -1,3 +1,0 @@
-TIMESTAMP|EXECUTION_ID|SCRIPT_NAME|SCRIPT_PATH|USER|WORKING_DIR|LOG_FILE|EXIT_CODE|DURATION|ORGNM|PLTNM|ENVNM
-2025-10-08 16:26:07|20251008-162607-22393|deploy-dats-beeux-data-dev.sh|/mnt/c/dev/beeinfra/dats/beeux/dev/vm1/scripts/deploy-dats-beeux-data-dev.sh|prash|/mnt/c/dev/beeinfra/dats/beeux/dev/vm1|/mnt/c/dev/beeinfra/logs/deploy-dats-beeux-data-dev-20251008-162606.log|1|1s|UNKNOWN|UNKNOWN|UNKNOWN
-2025-10-08 16:27:58|20251008-162758-22498|deploy-dats-beeux-data-dev.sh|/mnt/c/dev/beeinfra/dats/beeux/dev/vm1/scripts/deploy-dats-beeux-data-dev.sh|prash|/mnt/c/dev/beeinfra/dats/beeux/dev/vm1|/mnt/c/dev/beeinfra/logs/deploy-dats-beeux-data-dev-20251008-162717.log|1|41s|UNKNOWN|UNKNOWN|UNKNOWN

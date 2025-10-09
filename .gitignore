@@ -1,78 +1,243 @@
-# Azure Developer CLI
-.azure/
-.env
+# =============================================================================# Azure Developer CLI
+
+# TERRAFORM GITIGNORE.azure/
+
+# =============================================================================.env
+
 .env.local
 
-# Azure deployment artifacts
-*.zip
-*.tar.gz
+# Terraform state files
 
-# PowerShell execution policies
-*.ps1xml
+*.tfstate# Azure deployment artifacts
 
-# VS Code settings (keep project settings, ignore user settings)
+*.tfstate.**.zip
+
+*.tfstate.backup*.tar.gz
+
+
+
+# Terraform variable files (may contain secrets)# PowerShell execution policies
+
+*.tfvars*.ps1xml
+
+*.tfvars.json
+
+!terraform.tfvars.example# VS Code settings (keep project settings, ignore user settings)
+
 .vscode/settings.json
-.vscode/launch.json
 
-# Temporary files
+# Terraform plan files.vscode/launch.json
+
+*.tfplan
+
+*.tfplan.*# Temporary files
+
 *.tmp
-*.temp
-*~
 
-# Log files
-*.log
-logs/
+# Terraform lock files (commit this in production, but not for multi-OS dev)*.temp
 
-# Compiled binaries
-bin/
-obj/
+.terraform.lock.hcl*~
+
+
+
+# Terraform directories# Log files
+
+.terraform/*.log
+
+.terraform.d/logs/
+
+
+
+# Crash log files# Compiled binaries
+
+crash.logbin/
+
+crash.*.logobj/
+
 dist/
-build/
 
-# Package managers
+# =============================================================================build/
+
+# LOGS AND EXECUTION TRACKING
+
+# =============================================================================# Package managers
+
 node_modules/
-packages/
-*.tgz
+
+# Script execution logspackages/
+
+logs/*.tgz
+
+*.log
 
 # IDE files
-.idea/
-*.swp
+
+# Script execution registry (tracking file - exclude to avoid conflicts).idea/
+
+script-execution.registry*.swp
+
 *.swo
 
-# OS files
-.DS_Store
-Thumbs.db
-desktop.ini
+# =============================================================================
 
-# Backup files
-*.bak
-*.backup
+# SSH KEYS# OS files
+
+# =============================================================================.DS_Store
+
+Thumbs.db
+
+# Private keys (never commit!)desktop.ini
+
+*.pem
+
+*.key# Backup files
+
+id_rsa*.bak
+
+id_rsa.**.backup
+
+*.ppk
 
 # Azure credentials and sensitive data
-*.pem
-*.pfx
+
+# Known hosts*.pem
+
+known_hosts*.pfx
+
 *.p12
-secrets.json
-appsettings.local.json
+
+# =============================================================================secrets.json
+
+# CLOUD-INITappsettings.local.json
+
+# =============================================================================
 
 # Terraform state files (if using Terraform)
-*.tfstate
-*.tfstate.backup
-.terraform/
+
+# Cloud-init rendered files (may contain secrets after variable substitution)*.tfstate
+
+cloud-init-rendered/*.tfstate.backup
+
+*.rendered.yaml.terraform/
+
 terraform.tfvars
 
-# Bicep compiled files
-*.json
+# =============================================================================
+
+# AZURE# Bicep compiled files
+
+# =============================================================================*.json
+
 !azure.yaml
-!package.json
-!**/main.parameters.json
+
+# Azure CLI config!package.json
+
+.azure/!**/main.parameters.json
+
 !**/main.tfvars.json
 
-# Local development certificates
+# Azure credentials
+
+*.publishsettings# Local development certificates
+
 *.crt
-*.key
-localhost.*
+
+# =============================================================================*.key
+
+# EDITOR AND OS FILESlocalhost.*
+
+# =============================================================================
 
 # Application repositories (managed separately)
-euui/
-beeux-audio-generator/
+
+# VS Codeeuui/
+
+.vscode/beeux-audio-generator/
+
+*.code-workspace
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# =============================================================================
+# BACKUP FILES
+# =============================================================================
+
+# Backup and temporary files
+*.bak
+*.backup
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# =============================================================================
+# SENSITIVE DATA
+# =============================================================================
+
+# Environment files with secrets
+.env
+.env.local
+.env.*.local
+secrets/
+credentials/
+
+# =============================================================================
+# DOCUMENTATION BUILDS
+# =============================================================================
+
+# Generated documentation
+docs/_build/
+site/
+
+# =============================================================================
+# PACKAGE MANAGERS
+# =============================================================================
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# =============================================================================
+# ALLOW SPECIFIC FILES
+# =============================================================================
+
+# Allow example configuration files
+!terraform.tfvars.example
+!.env.example
+!secrets.example
+
+# Allow README files
+!README.md
+!*/README.md

@@ -133,9 +133,10 @@ write_files:
       # Add Docker repository
       echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
       
-      # Install Docker
+      # Install Docker (non-interactive, use new config files)
+      export DEBIAN_FRONTEND=noninteractive
       apt-get update
-      apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+      apt-get install -y -o Dpkg::Options::="--force-confnew" docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
       
       # Configure Docker daemon
       mkdir -p /etc/docker
@@ -199,9 +200,10 @@ write_files:
       curl -fsSL https://pkgs.k8s.io/core:/stable:/v$K8S_VERSION/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
       echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$K8S_VERSION/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
       
-      # Install Kubernetes components
+      # Install Kubernetes components (non-interactive)
+      export DEBIAN_FRONTEND=noninteractive
       apt-get update
-      apt-get install -y kubelet kubeadm kubectl
+      apt-get install -y -o Dpkg::Options::="--force-confnew" kubelet kubeadm kubectl
       apt-mark hold kubelet kubeadm kubectl
       
       # Enable kubelet

@@ -151,16 +151,29 @@ write_files:
       }
       EOF
       
-      # Enable and start Docker
+      # Configure containerd for Kubernetes
+      echo "[$(date)] Configuring containerd..."
+      mkdir -p /etc/containerd
+      containerd config default > /etc/containerd/config.toml
+      sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+      
+      # Enable and start services
+      systemctl enable containerd
+      systemctl restart containerd
       systemctl enable docker
       systemctl daemon-reload
       systemctl restart docker
       
+      # Verify containerd is running
+      sleep 5
+      systemctl status containerd --no-pager
+      
       # Add user to docker group
       usermod -aG docker ${admin_username}
       
-      echo "[$(date)] Docker installed successfully"
+      echo "[$(date)] Docker and containerd installed successfully"
       docker --version
+      containerd --version
 
   # Kubernetes installation script
   - path: /usr/local/bin/install-kubernetes.sh
@@ -307,14 +320,16 @@ write_files:
       
       echo "[$(date)] Cloning infrastructure repository..."
       
+      # Ensure parent directory exists and has proper permissions
+      PARENT_DIR=$(dirname "$GITHUB_INFRA_PATH")
+      mkdir -p "$PARENT_DIR"
+      chown ${admin_username}:${admin_username} "$PARENT_DIR"
+      
       # Remove existing directory if present
       rm -rf "$GITHUB_INFRA_PATH"
       
-      # Clone repository
+      # Clone repository as the user
       su - ${admin_username} -c "git clone https://$GITHUB_PAT@github.com/prashantmdesai/infra.git $GITHUB_INFRA_PATH"
-      
-      # Set permissions
-      chown -R ${admin_username}:${admin_username} "$GITHUB_INFRA_PATH"
       
       echo "[$(date)] Infrastructure repository cloned to $GITHUB_INFRA_PATH"
       ls -la "$GITHUB_INFRA_PATH"
@@ -380,13 +395,7 @@ runcmd:
   - echo "export VM_COMPONENTS=${vm_components}" >> /etc/profile.d/platform.sh
   - chmod +x /etc/profile.d/platform.sh
   
-  # Configure containerd
-  - mkdir -p /etc/containerd
-  - containerd config default | tee /etc/containerd/config.toml
-  - sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
-  - systemctl restart containerd
-  
-  # Run bootstrap script
+  # Run bootstrap script (containerd is now configured in install-docker.sh)
   - /usr/local/bin/bootstrap-master.sh
 
 # Final message

@@ -1,0 +1,396 @@
+#cloud-config
+# Master Node Cloud-Init Configuration
+# VM: ${vm_name} (${vm_role})
+# Components: ${vm_components}
+# Private IP: ${vm_private_ip}
+
+# Set hostname
+hostname: ${vm_name}
+fqdn: ${vm_name}.local
+
+# Configure users
+users:
+  - name: ${admin_username}
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: sudo, docker
+    shell: /bin/bash
+    lock_passwd: false
+
+# Set timezone
+timezone: America/Chicago
+
+# Package management
+package_update: true
+package_upgrade: true
+
+# Install required packages
+packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+  - software-properties-common
+  - git
+  - jq
+  - wget
+  - unzip
+  - net-tools
+  - cifs-utils
+  - nfs-common
+
+# Write files
+write_files:
+  # Environment configuration
+  - path: /etc/environment.d/platform.conf
+    permissions: '0644'
+    content: |
+      ORGNM=${org_name}
+      PLTNM=${platform_name}
+      ENVNM=${env_name}
+      VM_NAME=${vm_name}
+      VM_ROLE=${vm_role}
+      VM_COMPONENTS=${vm_components}
+
+  # Azure File Share credentials
+  - path: /etc/azure-fileshare.conf
+    permissions: '0600'
+    content: |
+      STORAGE_ACCOUNT_NAME=${storage_account_name}
+      FILE_SHARE_NAME=${file_share_name}
+      STORAGE_ACCESS_KEY=${storage_access_key}
+      MOUNT_POINT=/mnt/${file_share_name}
+
+  # GitHub credentials
+  - path: /home/${admin_username}/.github-credentials
+    permissions: '0600'
+    owner: ${admin_username}:${admin_username}
+    content: |
+      GITHUB_PAT=${github_pat}
+      GITHUB_INFRA_REPO=${github_infra_repo}
+      GITHUB_INFRA_PATH=${github_infra_path}
+
+  # Kubernetes configuration
+  - path: /etc/kubernetes-config.conf
+    permissions: '0644'
+    content: |
+      K8S_VERSION=${k8s_version}
+      K8S_POD_CIDR=${k8s_pod_cidr}
+      K8S_CNI=${k8s_cni}
+
+  # Mount Azure File Share script
+  - path: /usr/local/bin/mount-azure-fileshare.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -e
+      
+      source /etc/azure-fileshare.conf
+      
+      echo "[$(date)] Starting Azure File Share mount..."
+      
+      # Create mount point
+      mkdir -p "$MOUNT_POINT"
+      
+      # Create credentials file
+      CREDS_FILE="/etc/smbcredentials/$STORAGE_ACCOUNT_NAME.cred"
+      mkdir -p /etc/smbcredentials
+      echo "username=$STORAGE_ACCOUNT_NAME" > "$CREDS_FILE"
+      echo "password=$STORAGE_ACCESS_KEY" >> "$CREDS_FILE"
+      chmod 600 "$CREDS_FILE"
+      
+      # Add to fstab if not already present
+      FSTAB_ENTRY="//$STORAGE_ACCOUNT_NAME.file.core.windows.net/$FILE_SHARE_NAME $MOUNT_POINT cifs nofail,credentials=$CREDS_FILE,dir_mode=0777,file_mode=0666,serverino,nosharesock,actimeo=30"
+      if ! grep -q "$MOUNT_POINT" /etc/fstab; then
+        echo "$FSTAB_ENTRY" >> /etc/fstab
+      fi
+      
+      # Mount the share
+      mount -a
+      
+      # Create required directories
+      mkdir -p "$MOUNT_POINT/k8s-join-token"
+      mkdir -p "$MOUNT_POINT/logs"
+      mkdir -p "$MOUNT_POINT/configs"
+      mkdir -p "$MOUNT_POINT/data"
+      
+      echo "[$(date)] Azure File Share mounted successfully at $MOUNT_POINT"
+      df -h "$MOUNT_POINT"
+
+  # Docker installation script
+  - path: /usr/local/bin/install-docker.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -e
+      
+      echo "[$(date)] Installing Docker..."
+      
+      # Add Docker's official GPG key
+      mkdir -p /etc/apt/keyrings
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+      chmod a+r /etc/apt/keyrings/docker.gpg
+      
+      # Add Docker repository
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+      
+      # Install Docker
+      apt-get update
+      apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+      
+      # Configure Docker daemon
+      mkdir -p /etc/docker
+      cat > /etc/docker/daemon.json <<EOF
+      {
+        "exec-opts": ["native.cgroupdriver=systemd"],
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-size": "100m"
+        },
+        "storage-driver": "overlay2"
+      }
+      EOF
+      
+      # Enable and start Docker
+      systemctl enable docker
+      systemctl daemon-reload
+      systemctl restart docker
+      
+      # Add user to docker group
+      usermod -aG docker ${admin_username}
+      
+      echo "[$(date)] Docker installed successfully"
+      docker --version
+
+  # Kubernetes installation script
+  - path: /usr/local/bin/install-kubernetes.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -e
+      
+      source /etc/kubernetes-config.conf
+      
+      echo "[$(date)] Installing Kubernetes $K8S_VERSION..."
+      
+      # Disable swap
+      swapoff -a
+      sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+      
+      # Load required kernel modules
+      cat > /etc/modules-load.d/k8s.conf <<EOF
+      overlay
+      br_netfilter
+      EOF
+      
+      modprobe overlay
+      modprobe br_netfilter
+      
+      # Configure sysctl
+      cat > /etc/sysctl.d/k8s.conf <<EOF
+      net.bridge.bridge-nf-call-iptables  = 1
+      net.bridge.bridge-nf-call-ip6tables = 1
+      net.ipv4.ip_forward                 = 1
+      EOF
+      
+      sysctl --system
+      
+      # Add Kubernetes repository
+      mkdir -p /etc/apt/keyrings
+      curl -fsSL https://pkgs.k8s.io/core:/stable:/v$K8S_VERSION/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$K8S_VERSION/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
+      
+      # Install Kubernetes components
+      apt-get update
+      apt-get install -y kubelet kubeadm kubectl
+      apt-mark hold kubelet kubeadm kubectl
+      
+      # Enable kubelet
+      systemctl enable kubelet
+      
+      echo "[$(date)] Kubernetes $K8S_VERSION installed successfully"
+      kubeadm version
+
+  # Initialize Kubernetes master script
+  - path: /usr/local/bin/init-k8s-master.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -e
+      
+      source /etc/kubernetes-config.conf
+      source /etc/azure-fileshare.conf
+      
+      echo "[$(date)] Initializing Kubernetes master node..."
+      
+      # Initialize cluster
+      kubeadm init --pod-network-cidr=$K8S_POD_CIDR --apiserver-advertise-address=${vm_private_ip} --ignore-preflight-errors=all
+      
+      # Configure kubectl for root
+      export KUBECONFIG=/etc/kubernetes/admin.conf
+      
+      # Configure kubectl for user
+      mkdir -p /home/${admin_username}/.kube
+      cp /etc/kubernetes/admin.conf /home/${admin_username}/.kube/config
+      chown -R ${admin_username}:${admin_username} /home/${admin_username}/.kube
+      
+      # Save join command to file share
+      JOIN_CMD=$(kubeadm token create --print-join-command)
+      echo "$JOIN_CMD" > "$MOUNT_POINT/k8s-join-token/join-command.sh"
+      chmod 644 "$MOUNT_POINT/k8s-join-token/join-command.sh"
+      
+      # Save cluster info
+      kubectl cluster-info > "$MOUNT_POINT/k8s-join-token/cluster-info.txt"
+      
+      echo "[$(date)] Kubernetes master initialized successfully"
+
+  # Install Calico CNI script
+  - path: /usr/local/bin/install-calico.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -e
+      
+      source /etc/kubernetes-config.conf
+      
+      echo "[$(date)] Installing Calico CNI..."
+      
+      export KUBECONFIG=/etc/kubernetes/admin.conf
+      
+      # Install Calico operator
+      kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.27.0/manifests/tigera-operator.yaml
+      
+      # Wait for operator to be ready
+      sleep 30
+      
+      # Install Calico custom resources
+      cat > /tmp/calico-custom-resources.yaml <<EOF
+      apiVersion: operator.tigera.io/v1
+      kind: Installation
+      metadata:
+        name: default
+      spec:
+        calicoNetwork:
+          ipPools:
+          - blockSize: 26
+            cidr: $K8S_POD_CIDR
+            encapsulation: VXLANCrossSubnet
+            natOutgoing: Enabled
+            nodeSelector: all()
+      ---
+      apiVersion: operator.tigera.io/v1
+      kind: APIServer
+      metadata:
+        name: default
+      spec: {}
+      EOF
+      
+      kubectl apply -f /tmp/calico-custom-resources.yaml
+      
+      echo "[$(date)] Calico CNI installation initiated"
+      echo "[$(date)] Waiting for Calico pods to be ready (this may take a few minutes)..."
+      
+      # Wait for Calico pods
+      kubectl wait --for=condition=ready pod -l k8s-app=calico-node -n calico-system --timeout=300s || true
+      
+      echo "[$(date)] Calico CNI installed successfully"
+
+  # Clone infrastructure repository script
+  - path: /usr/local/bin/clone-infra-repo.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -e
+      
+      source /home/${admin_username}/.github-credentials
+      
+      echo "[$(date)] Cloning infrastructure repository..."
+      
+      # Remove existing directory if present
+      rm -rf "$GITHUB_INFRA_PATH"
+      
+      # Clone repository
+      su - ${admin_username} -c "git clone https://$GITHUB_PAT@github.com/prashantmdesai/infra.git $GITHUB_INFRA_PATH"
+      
+      # Set permissions
+      chown -R ${admin_username}:${admin_username} "$GITHUB_INFRA_PATH"
+      
+      echo "[$(date)] Infrastructure repository cloned to $GITHUB_INFRA_PATH"
+      ls -la "$GITHUB_INFRA_PATH"
+
+  # Master node bootstrap orchestration script
+  - path: /usr/local/bin/bootstrap-master.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -e
+      
+      LOG_FILE="/var/log/bootstrap-master.log"
+      
+      exec > >(tee -a "$LOG_FILE") 2>&1
+      
+      echo "=========================================="
+      echo "[$(date)] Starting master node bootstrap"
+      echo "=========================================="
+      
+      # Step 1: Mount Azure File Share
+      echo "[$(date)] Step 1: Mounting Azure File Share..."
+      /usr/local/bin/mount-azure-fileshare.sh
+      
+      # Step 2: Install Docker
+      echo "[$(date)] Step 2: Installing Docker..."
+      /usr/local/bin/install-docker.sh
+      
+      # Step 3: Install Kubernetes
+      echo "[$(date)] Step 3: Installing Kubernetes..."
+      /usr/local/bin/install-kubernetes.sh
+      
+      # Step 4: Initialize Kubernetes master
+      echo "[$(date)] Step 4: Initializing Kubernetes master..."
+      /usr/local/bin/init-k8s-master.sh
+      
+      # Step 5: Install Calico CNI
+      echo "[$(date)] Step 5: Installing Calico CNI..."
+      /usr/local/bin/install-calico.sh
+      
+      # Step 6: Clone infrastructure repository
+      echo "[$(date)] Step 6: Cloning infrastructure repository..."
+      /usr/local/bin/clone-infra-repo.sh
+      
+      echo "=========================================="
+      echo "[$(date)] Master node bootstrap completed"
+      echo "=========================================="
+      
+      # Copy log to file share
+      source /etc/azure-fileshare.conf
+      cp "$LOG_FILE" "$MOUNT_POINT/logs/bootstrap-master-$(hostname)-$(date +%Y%m%d-%H%M%S).log"
+
+# Run commands
+runcmd:
+  # Set environment variables globally
+  - echo "export ORGNM=${org_name}" >> /etc/profile.d/platform.sh
+  - echo "export PLTNM=${platform_name}" >> /etc/profile.d/platform.sh
+  - echo "export ENVNM=${env_name}" >> /etc/profile.d/platform.sh
+  - echo "export VM_NAME=${vm_name}" >> /etc/profile.d/platform.sh
+  - echo "export VM_ROLE=${vm_role}" >> /etc/profile.d/platform.sh
+  - echo "export VM_COMPONENTS=${vm_components}" >> /etc/profile.d/platform.sh
+  - chmod +x /etc/profile.d/platform.sh
+  
+  # Configure containerd
+  - mkdir -p /etc/containerd
+  - containerd config default | tee /etc/containerd/config.toml
+  - sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+  - systemctl restart containerd
+  
+  # Run bootstrap script
+  - /usr/local/bin/bootstrap-master.sh
+
+# Final message
+final_message: |
+  ========================================
+  Cloud-init completed for ${vm_name}
+  Role: ${vm_role}
+  Components: ${vm_components}
+  Bootstrap log: /var/log/bootstrap-master.log
+  ========================================
+  The system is finally up, after $UPTIME seconds

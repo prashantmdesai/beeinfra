@@ -62,15 +62,9 @@ resource "azurerm_storage_share" "main" {
 }
 
 # Create directories in the file share for organized storage
-resource "azurerm_storage_share_directory" "k8s_join_token" {
-  name             = "k8s-join-token"
-  storage_share_id = azurerm_storage_share.main.id
-}
-
-resource "azurerm_storage_share_directory" "logs" {
-  name             = "logs"
-  storage_share_id = azurerm_storage_share.main.id
-}
+# Note: k8s-join-token and logs directories are NOT managed by Terraform because
+# they are written to by VMs and cause authentication failures during destroy.
+# These directories will be created automatically by VMs when they mount the share.
 
 resource "azurerm_storage_share_directory" "backups" {
   name             = "backups"

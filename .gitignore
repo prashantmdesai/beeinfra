@@ -1,159 +1,94 @@
-# =============================================================================# Azure Developer CLI
-
-# TERRAFORM GITIGNORE.azure/
-
-# =============================================================================.env
-
-.env.local
+# =============================================================================
+# TERRAFORM
+# =============================================================================
 
 # Terraform state files
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+terraform.tfstate
+terraform.tfstate.backup
 
-*.tfstate# Azure deployment artifacts
-
-*.tfstate.**.zip
-
-*.tfstate.backup*.tar.gz
-
-
-
-# Terraform variable files (may contain secrets)# PowerShell execution policies
-
-*.tfvars*.ps1xml
-
+# Terraform variable files (may contain secrets)
+*.tfvars
 *.tfvars.json
+!terraform.tfvars.example
 
-!terraform.tfvars.example# VS Code settings (keep project settings, ignore user settings)
-
-.vscode/settings.json
-
-# Terraform plan files.vscode/launch.json
-
+# Terraform plan files
 *.tfplan
+*.tfplan.*
+tfplan-*
 
-*.tfplan.*# Temporary files
+# Terraform lock files
+.terraform.lock.hcl
 
-*.tmp
+# Terraform directories
+.terraform/
+.terraform.d/
 
-# Terraform lock files (commit this in production, but not for multi-OS dev)*.temp
-
-.terraform.lock.hcl*~
-
-
-
-# Terraform directories# Log files
-
-.terraform/*.log
-
-.terraform.d/logs/
-
-
-
-# Crash log files# Compiled binaries
-
-crash.logbin/
-
-crash.*.logobj/
-
-dist/
-
-# =============================================================================build/
-
-# LOGS AND EXECUTION TRACKING
-
-# =============================================================================# Package managers
-
-node_modules/
-
-# Script execution logspackages/
-
-logs/*.tgz
-
-*.log
-
-# IDE files
-
-# Script execution registry (tracking file - exclude to avoid conflicts).idea/
-
-script-execution.registry*.swp
-
-*.swo
+# Crash log files
+crash.log
+crash.*.log
 
 # =============================================================================
+# AZURE
+# =============================================================================
 
-# SSH KEYS# OS files
+# Azure Developer CLI
+.azure/
 
-# =============================================================================.DS_Store
-
-Thumbs.db
-
-# Private keys (never commit!)desktop.ini
-
-*.pem
-
-*.key# Backup files
-
-id_rsa*.bak
-
-id_rsa.**.backup
-
-*.ppk
+# Azure deployment artifacts
+*.zip
+*.tar.gz
 
 # Azure credentials and sensitive data
-
-# Known hosts*.pem
-
-known_hosts*.pfx
-
+*.publishsettings
+*.pem
+*.pfx
 *.p12
-
-# =============================================================================secrets.json
-
-# CLOUD-INITappsettings.local.json
+secrets.json
+appsettings.local.json
 
 # =============================================================================
-
-# Terraform state files (if using Terraform)
-
-# Cloud-init rendered files (may contain secrets after variable substitution)*.tfstate
-
-cloud-init-rendered/*.tfstate.backup
-
-*.rendered.yaml.terraform/
-
-terraform.tfvars
-
+# SSH KEYS
 # =============================================================================
 
-# AZURE# Bicep compiled files
+# Private keys (never commit!)
+*.key
+id_rsa
+id_rsa.*
+*.ppk
+known_hosts
 
-# =============================================================================*.json
-
-!azure.yaml
-
-# Azure CLI config!package.json
-
-.azure/!**/main.parameters.json
-
-!**/main.tfvars.json
-
-# Azure credentials
-
-*.publishsettings# Local development certificates
-
-*.crt
-
-# =============================================================================*.key
-
-# EDITOR AND OS FILESlocalhost.*
+# SSH keys directory
+**/ssh-keys/
 
 # =============================================================================
+# CLOUD-INIT
+# =============================================================================
 
-# Application repositories (managed separately)
+# Cloud-init rendered files
+cloud-init-rendered/
+*.rendered.yaml
 
-# VS Codeeuui/
+# =============================================================================
+# LOGS
+# =============================================================================
 
-.vscode/beeux-audio-generator/
+# Script execution logs
+logs/
+*.log
 
+# Script execution registry
+script-execution.registry
+
+# =============================================================================
+# EDITOR AND OS FILES
+# =============================================================================
+
+# VS Code
+.vscode/settings.json
+.vscode/launch.json
 *.code-workspace
 
 # IntelliJ IDEA
@@ -182,33 +117,22 @@ Desktop.ini
 # BACKUP FILES
 # =============================================================================
 
-# Backup and temporary files
 *.bak
 *.backup
 *.tmp
 *.temp
 *.swp
 *.swo
-*~
 
 # =============================================================================
-# SENSITIVE DATA
+# ENVIRONMENT FILES
 # =============================================================================
 
-# Environment files with secrets
 .env
 .env.local
 .env.*.local
 secrets/
 credentials/
-
-# =============================================================================
-# DOCUMENTATION BUILDS
-# =============================================================================
-
-# Generated documentation
-docs/_build/
-site/
 
 # =============================================================================
 # PACKAGE MANAGERS
@@ -218,6 +142,7 @@ site/
 node_modules/
 npm-debug.log
 yarn-error.log
+*.tgz
 
 # Python
 __pycache__/
@@ -230,14 +155,34 @@ env/
 ENV/
 
 # =============================================================================
-# ALLOW SPECIFIC FILES
+# COMPILED BINARIES
 # =============================================================================
 
-# Allow example configuration files
-!terraform.tfvars.example
-!.env.example
-!secrets.example
+bin/
+obj/
+dist/
+build/
+packages/
 
-# Allow README files
-!README.md
-!*/README.md
+# =============================================================================
+# DOCUMENTATION
+# =============================================================================
+
+docs/_build/
+site/
+
+# =============================================================================
+# APPLICATION REPOS
+# =============================================================================
+
+euui/
+beeux-audio-generator/
+
+# =============================================================================
+# LOCAL DEV FILES
+# =============================================================================
+
+windows-ssh-config.txt
+*_REPORT.md
+*_SUMMARY.md
+*_INSTRUCTIONS.md

@@ -170,12 +170,6 @@ write_files:
       BEEUSER_UID=$(id -u ${admin_username})
       BEEUSER_GID=$(id -g ${admin_username})
       
-      # Add to fstab if not already present with proper ownership and _netdev option
-      FSTAB_ENTRY="//$STORAGE_ACCOUNT_NAME.file.core.windows.net/$FILE_SHARE_NAME $MOUNT_POINT cifs nofail,credentials=$CREDS_FILE,uid=$BEEUSER_UID,gid=$BEEUSER_GID,dir_mode=0775,file_mode=0664,serverino,nosharesock,actimeo=30,_netdev 0 0"
-      if ! grep -q "$MOUNT_POINT" /etc/fstab; then
-        echo "$FSTAB_ENTRY" >> /etc/fstab
-      fi
-      
       # Test DNS resolution first
       echo "[$(date)] Testing DNS resolution for $STORAGE_ACCOUNT_NAME.file.core.windows.net..."
       for i in {1..5}; do
@@ -187,16 +181,29 @@ write_files:
         sleep 10
       done
       
-      # Mount the share with retry logic
-      echo "[$(date)] Attempting to mount Azure File Share..."
-      for i in {1..3}; do
-        if mount -t cifs "//$STORAGE_ACCOUNT_NAME.file.core.windows.net/$FILE_SHARE_NAME" "$MOUNT_POINT" -o "credentials=$CREDS_FILE,uid=$BEEUSER_UID,gid=$BEEUSER_GID,dir_mode=0775,file_mode=0664,serverino,nosharesock,actimeo=30,_netdev"; then
-          echo "[$(date)] Mount successful on attempt $i"
-          break
-        fi
-        echo "[$(date)] Mount failed on attempt $i/3, retrying in 15s..."
-        sleep 15
-      done
+      # Create systemd mount unit (replaces fstab for better reliability)
+      MOUNT_UNIT_NAME=$(echo "$MOUNT_POINT" | sed 's|^/||;s|/|-|g').mount
+      cat > "/etc/systemd/system/$MOUNT_UNIT_NAME" <<EOF
+      [Unit]
+      Description=Azure File Share Mount for ${file_share_name}
+      After=network-online.target
+      Wants=network-online.target
+      
+      [Mount]
+      What=//$STORAGE_ACCOUNT_NAME.file.core.windows.net/$FILE_SHARE_NAME
+      Where=$MOUNT_POINT
+      Type=cifs
+      Options=credentials=$CREDS_FILE,uid=$BEEUSER_UID,gid=$BEEUSER_GID,dir_mode=0775,file_mode=0664,serverino,nosharesock,actimeo=30
+      TimeoutSec=30
+      
+      [Install]
+      WantedBy=multi-user.target
+      EOF
+      
+      # Enable and start mount
+      systemctl daemon-reload
+      systemctl enable "$MOUNT_UNIT_NAME"
+      systemctl start "$MOUNT_UNIT_NAME"
       
       # Verify mount
       if ! mountpoint -q "$MOUNT_POINT"; then
@@ -209,6 +216,13 @@ write_files:
       mkdir -p "$MOUNT_POINT/logs"
       mkdir -p "$MOUNT_POINT/configs"
       mkdir -p "$MOUNT_POINT/data"
+      
+      # Create required directories
+      mkdir -p "$MOUNT_POINT/k8s-join-token"
+      mkdir -p "$MOUNT_POINT/logs"
+      mkdir -p "$MOUNT_POINT/configs"
+      mkdir -p "$MOUNT_POINT/data"
+      chown -R ${admin_username}:${admin_username} "$MOUNT_POINT"
       
       echo "[$(date)] Azure File Share mounted successfully at $MOUNT_POINT"
       df -h "$MOUNT_POINT"
@@ -225,72 +239,21 @@ write_files:
       echo "Duration: $${SCRIPT_DURATION}s"
       echo "============================================================================="
 
-  # Azure File Share mount service to ensure persistence after reboot
-  - path: /etc/systemd/system/azure-fileshare-mount.service
+  # Azure File Share automount unit for on-demand mounting
+  - path: /etc/systemd/system/mnt-${file_share_name}.automount
     permissions: '0644'
     content: |
       [Unit]
-      Description=Mount Azure File Share with retry logic
-      After=network-online.target systemd-resolved.service
-      Wants=network-online.target
-      Before=docker.service kubelet.service
+      Description=Automount Azure File Share ${file_share_name}
       
-      [Service]
-      Type=oneshot
-      RemainAfterExit=yes
-      TimeoutStartSec=300
-      Restart=on-failure
-      RestartSec=30
-      
-      # Pre-mount setup
-      ExecStartPre=/bin/mkdir -p /mnt/${file_share_name}
-      ExecStartPre=/bin/chown ${admin_username}:${admin_username} /mnt/${file_share_name}
-      ExecStartPre=/bin/chmod 775 /mnt/${file_share_name}
-      
-      # Test network connectivity first
-      ExecStartPre=/bin/bash -c 'for i in {1..10}; do if nslookup ${storage_account_name}.file.core.windows.net; then break; fi; echo "DNS lookup failed, retrying in 10s..."; sleep 10; done'
-      
-      # Mount with retry
-      ExecStart=/bin/bash -c 'for i in {1..5}; do if mount -t cifs //${storage_account_name}.file.core.windows.net/${file_share_name} /mnt/${file_share_name} -o credentials=/etc/smbcredentials/${storage_account_name}.cred,uid=$(id -u ${admin_username}),gid=$(id -g ${admin_username}),dir_mode=0775,file_mode=0664,serverino,nosharesock,actimeo=30,_netdev; then echo "Mount successful"; break; fi; echo "Mount attempt $$i failed, retrying in 15s..."; sleep 15; done'
-      
-      # Verify mount and create directories
-      ExecStartPost=/bin/bash -c 'if mountpoint -q /mnt/${file_share_name}; then echo "Mount verified successful"; mkdir -p /mnt/${file_share_name}/{k8s-join-token,logs,configs,data}; chown -R ${admin_username}:${admin_username} /mnt/${file_share_name}; else echo "Mount verification failed"; exit 1; fi'
-      
-      # Cleanup on failure
-      ExecStopPost=/bin/bash -c 'if mountpoint -q /mnt/${file_share_name}; then umount /mnt/${file_share_name} || true; fi'
+      [Automount]
+      Where=/mnt/${file_share_name}
+      TimeoutIdleSec=300
       
       [Install]
       WantedBy=multi-user.target
 
-  # Azure File Share mount timer for periodic health checks
-  - path: /etc/systemd/system/azure-fileshare-healthcheck.service
-    permissions: '0644'
-    content: |
-      [Unit]
-      Description=Check Azure File Share mount health
-      After=azure-fileshare-mount.service
-      
-      [Service]
-      Type=oneshot
-      ExecStart=/bin/bash -c 'if ! mountpoint -q /mnt/${file_share_name}; then echo "Mount not found, attempting remount"; systemctl restart azure-fileshare-mount.service; fi'
-      
-      [Install]
-      WantedBy=multi-user.target
 
-  # Timer for periodic health checks
-  - path: /etc/systemd/system/azure-fileshare-healthcheck.timer
-    permissions: '0644'
-    content: |
-      [Unit]
-      Description=Run Azure File Share health check every 5 minutes
-      Requires=azure-fileshare-healthcheck.service
-      
-      [Timer]
-      OnBootSec=5min
-      OnUnitActiveSec=5min
-      
-      [Install]
-      WantedBy=timers.target
 
   # Docker installation script
   - path: /usr/local/bin/install-docker.sh
@@ -382,10 +345,6 @@ write_files:
       systemctl enable docker
       log_and_run systemctl daemon-reload
       log_and_run systemctl restart docker
-      
-      # Enable Azure File Share mount service and health check
-      log_and_run systemctl enable azure-fileshare-mount.service
-      log_and_run systemctl enable azure-fileshare-healthcheck.timer
       
       # Verify containerd is running
       echo "Waiting for services to start..." | tee -a "$LOG_FILE"

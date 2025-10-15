@@ -96,7 +96,7 @@ write_files:
       BEEUSER_GID=$(id -g ${admin_username})
       
       # Add to fstab if not already present with proper ownership
-      FSTAB_ENTRY="//$STORAGE_ACCOUNT_NAME.file.core.windows.net/$FILE_SHARE_NAME $MOUNT_POINT cifs nofail,credentials=$CREDS_FILE,uid=$BEEUSER_UID,gid=$BEEUSER_GID,dir_mode=0775,file_mode=0664,serverino,nosharesock,actimeo=30"
+      FSTAB_ENTRY="//$STORAGE_ACCOUNT_NAME.file.core.windows.net/$FILE_SHARE_NAME $MOUNT_POINT cifs nofail,credentials=$CREDS_FILE,uid=$BEEUSER_UID,gid=$BEEUSER_GID,dir_mode=0775,file_mode=0664,serverino,nosharesock,actimeo=30,_netdev 0 0"
       if ! grep -q "$MOUNT_POINT" /etc/fstab; then
         echo "$FSTAB_ENTRY" >> /etc/fstab
       fi

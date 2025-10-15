@@ -21,6 +21,8 @@ users:
     groups: sudo, docker
     shell: /bin/bash
     lock_passwd: false
+    ssh_authorized_keys:
+      - ${ssh_public_key}
 
 # Set timezone
 timezone: America/Chicago
@@ -164,14 +166,43 @@ write_files:
       echo "password=$STORAGE_ACCESS_KEY" >> "$CREDS_FILE"
       chmod 600 "$CREDS_FILE"
       
-      # Add to fstab if not already present
-      FSTAB_ENTRY="//$STORAGE_ACCOUNT_NAME.file.core.windows.net/$FILE_SHARE_NAME $MOUNT_POINT cifs nofail,credentials=$CREDS_FILE,dir_mode=0777,file_mode=0666,serverino,nosharesock,actimeo=30"
+      # Get beeuser UID and GID for proper ownership
+      BEEUSER_UID=$(id -u ${admin_username})
+      BEEUSER_GID=$(id -g ${admin_username})
+      
+      # Add to fstab if not already present with proper ownership and _netdev option
+      FSTAB_ENTRY="//$STORAGE_ACCOUNT_NAME.file.core.windows.net/$FILE_SHARE_NAME $MOUNT_POINT cifs nofail,credentials=$CREDS_FILE,uid=$BEEUSER_UID,gid=$BEEUSER_GID,dir_mode=0775,file_mode=0664,serverino,nosharesock,actimeo=30,_netdev 0 0"
       if ! grep -q "$MOUNT_POINT" /etc/fstab; then
         echo "$FSTAB_ENTRY" >> /etc/fstab
       fi
       
-      # Mount the share
-      mount -a
+      # Test DNS resolution first
+      echo "[$(date)] Testing DNS resolution for $STORAGE_ACCOUNT_NAME.file.core.windows.net..."
+      for i in {1..5}; do
+        if nslookup "$STORAGE_ACCOUNT_NAME.file.core.windows.net"; then
+          echo "[$(date)] DNS resolution successful"
+          break
+        fi
+        echo "[$(date)] DNS resolution failed, attempt $i/5, retrying in 10s..."
+        sleep 10
+      done
+      
+      # Mount the share with retry logic
+      echo "[$(date)] Attempting to mount Azure File Share..."
+      for i in {1..3}; do
+        if mount -t cifs "//$STORAGE_ACCOUNT_NAME.file.core.windows.net/$FILE_SHARE_NAME" "$MOUNT_POINT" -o "credentials=$CREDS_FILE,uid=$BEEUSER_UID,gid=$BEEUSER_GID,dir_mode=0775,file_mode=0664,serverino,nosharesock,actimeo=30,_netdev"; then
+          echo "[$(date)] Mount successful on attempt $i"
+          break
+        fi
+        echo "[$(date)] Mount failed on attempt $i/3, retrying in 15s..."
+        sleep 15
+      done
+      
+      # Verify mount
+      if ! mountpoint -q "$MOUNT_POINT"; then
+        echo "[$(date)] ERROR: Mount verification failed"
+        exit 1
+      fi
       
       # Create required directories
       mkdir -p "$MOUNT_POINT/k8s-join-token"
@@ -193,6 +224,73 @@ write_files:
       echo "Exit Code: 0"
       echo "Duration: $${SCRIPT_DURATION}s"
       echo "============================================================================="
+
+  # Azure File Share mount service to ensure persistence after reboot
+  - path: /etc/systemd/system/azure-fileshare-mount.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Mount Azure File Share with retry logic
+      After=network-online.target systemd-resolved.service
+      Wants=network-online.target
+      Before=docker.service kubelet.service
+      
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      TimeoutStartSec=300
+      Restart=on-failure
+      RestartSec=30
+      
+      # Pre-mount setup
+      ExecStartPre=/bin/mkdir -p /mnt/${file_share_name}
+      ExecStartPre=/bin/chown ${admin_username}:${admin_username} /mnt/${file_share_name}
+      ExecStartPre=/bin/chmod 775 /mnt/${file_share_name}
+      
+      # Test network connectivity first
+      ExecStartPre=/bin/bash -c 'for i in {1..10}; do if nslookup ${storage_account_name}.file.core.windows.net; then break; fi; echo "DNS lookup failed, retrying in 10s..."; sleep 10; done'
+      
+      # Mount with retry
+      ExecStart=/bin/bash -c 'for i in {1..5}; do if mount -t cifs //${storage_account_name}.file.core.windows.net/${file_share_name} /mnt/${file_share_name} -o credentials=/etc/smbcredentials/${storage_account_name}.cred,uid=$(id -u ${admin_username}),gid=$(id -g ${admin_username}),dir_mode=0775,file_mode=0664,serverino,nosharesock,actimeo=30,_netdev; then echo "Mount successful"; break; fi; echo "Mount attempt $$i failed, retrying in 15s..."; sleep 15; done'
+      
+      # Verify mount and create directories
+      ExecStartPost=/bin/bash -c 'if mountpoint -q /mnt/${file_share_name}; then echo "Mount verified successful"; mkdir -p /mnt/${file_share_name}/{k8s-join-token,logs,configs,data}; chown -R ${admin_username}:${admin_username} /mnt/${file_share_name}; else echo "Mount verification failed"; exit 1; fi'
+      
+      # Cleanup on failure
+      ExecStopPost=/bin/bash -c 'if mountpoint -q /mnt/${file_share_name}; then umount /mnt/${file_share_name} || true; fi'
+      
+      [Install]
+      WantedBy=multi-user.target
+
+  # Azure File Share mount timer for periodic health checks
+  - path: /etc/systemd/system/azure-fileshare-healthcheck.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Check Azure File Share mount health
+      After=azure-fileshare-mount.service
+      
+      [Service]
+      Type=oneshot
+      ExecStart=/bin/bash -c 'if ! mountpoint -q /mnt/${file_share_name}; then echo "Mount not found, attempting remount"; systemctl restart azure-fileshare-mount.service; fi'
+      
+      [Install]
+      WantedBy=multi-user.target
+
+  # Timer for periodic health checks
+  - path: /etc/systemd/system/azure-fileshare-healthcheck.timer
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Run Azure File Share health check every 5 minutes
+      Requires=azure-fileshare-healthcheck.service
+      
+      [Timer]
+      OnBootSec=5min
+      OnUnitActiveSec=5min
+      
+      [Install]
+      WantedBy=timers.target
 
   # Docker installation script
   - path: /usr/local/bin/install-docker.sh
@@ -284,6 +382,10 @@ write_files:
       systemctl enable docker
       log_and_run systemctl daemon-reload
       log_and_run systemctl restart docker
+      
+      # Enable Azure File Share mount service and health check
+      log_and_run systemctl enable azure-fileshare-mount.service
+      log_and_run systemctl enable azure-fileshare-healthcheck.timer
       
       # Verify containerd is running
       echo "Waiting for services to start..." | tee -a "$LOG_FILE"
@@ -597,6 +699,21 @@ write_files:
       
       echo "[$(date)] Calico CNI installed successfully" | tee -a "$LOG_FILE"
       
+      # Install calicoctl binary
+      echo "[$(date)] Installing calicoctl binary..." | tee -a "$LOG_FILE"
+      CALICO_VERSION="v3.27.0"
+      CALICOCTL_URL="https://github.com/projectcalico/calico/releases/download/$${CALICO_VERSION}/calicoctl-linux-amd64"
+      
+      echo "Downloading calicoctl $${CALICO_VERSION}..." | tee -a "$LOG_FILE"
+      log_and_run curl -L -o /tmp/calicoctl "$${CALICOCTL_URL}"
+      log_and_run chmod +x /tmp/calicoctl
+      log_and_run mv /tmp/calicoctl /usr/local/bin/calicoctl
+      
+      echo "Verifying calicoctl installation..." | tee -a "$LOG_FILE"
+      log_and_run calicoctl version
+      
+      echo "[$(date)] calicoctl installed successfully" | tee -a "$LOG_FILE"
+      
       # Calculate script execution duration
       SCRIPT_END_TIME=$(date +%s)
       SCRIPT_DURATION=$((SCRIPT_END_TIME - SCRIPT_START_TIME))
@@ -608,6 +725,7 @@ write_files:
       echo "Exit Code: 0"
       echo "Duration: $${SCRIPT_DURATION}s"
       echo "CNI: $K8S_CNI"
+      echo "calicoctl: Installed ($${CALICO_VERSION})"
       echo "============================================================================="
 
   # Clone infrastructure repository script
@@ -765,6 +883,7 @@ write_files:
 # Run commands
 runcmd:
   # Fix file ownership (user is created by Azure before runcmd)
+  - chown -R ${admin_username}:${admin_username} /home/${admin_username}
   - chown ${admin_username}:${admin_username} /home/${admin_username}/.github-credentials
   
   # Set environment variables globally

@@ -15,6 +15,8 @@ users:
     groups: sudo, docker
     shell: /bin/bash
     lock_passwd: false
+    ssh_authorized_keys:
+      - ${ssh_public_key}
 
 # Set timezone
 timezone: America/Chicago
@@ -89,8 +91,12 @@ write_files:
       echo "password=$STORAGE_ACCESS_KEY" >> "$CREDS_FILE"
       chmod 600 "$CREDS_FILE"
       
-      # Add to fstab if not already present
-      FSTAB_ENTRY="//$STORAGE_ACCOUNT_NAME.file.core.windows.net/$FILE_SHARE_NAME $MOUNT_POINT cifs nofail,credentials=$CREDS_FILE,dir_mode=0777,file_mode=0666,serverino,nosharesock,actimeo=30"
+      # Get beeuser UID and GID for proper ownership
+      BEEUSER_UID=$(id -u ${admin_username})
+      BEEUSER_GID=$(id -g ${admin_username})
+      
+      # Add to fstab if not already present with proper ownership
+      FSTAB_ENTRY="//$STORAGE_ACCOUNT_NAME.file.core.windows.net/$FILE_SHARE_NAME $MOUNT_POINT cifs nofail,credentials=$CREDS_FILE,uid=$BEEUSER_UID,gid=$BEEUSER_GID,dir_mode=0775,file_mode=0664,serverino,nosharesock,actimeo=30"
       if ! grep -q "$MOUNT_POINT" /etc/fstab; then
         echo "$FSTAB_ENTRY" >> /etc/fstab
       fi
@@ -100,6 +106,29 @@ write_files:
       
       echo "[$(date)] Azure File Share mounted successfully at $MOUNT_POINT"
       df -h "$MOUNT_POINT"
+
+  # Azure File Share mount service to ensure persistence after reboot
+  - path: /etc/systemd/system/azure-fileshare-mount.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Ensure Azure File Share Mount Directory and Mount
+      After=network-online.target
+      Wants=network-online.target
+      Before=docker.service
+      
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      ExecStartPre=/bin/mkdir -p /mnt/${file_share_name}
+      ExecStartPre=/bin/chown ${admin_username}:${admin_username} /mnt/${file_share_name}
+      ExecStartPre=/bin/chmod 775 /mnt/${file_share_name}
+      ExecStart=/bin/mount -a
+      ExecStartPost=/bin/sleep 2
+      ExecStartPost=/bin/bash -c 'if ! mountpoint -q /mnt/${file_share_name}; then /bin/mount /mnt/${file_share_name} || true; fi'
+      
+      [Install]
+      WantedBy=multi-user.target
 
   # Docker installation script
   - path: /usr/local/bin/install-docker.sh
@@ -135,10 +164,20 @@ write_files:
       }
       EOF
       
-      # Enable and start Docker
+      # Configure containerd for Kubernetes
+      mkdir -p /etc/containerd
+      containerd config default | tee /etc/containerd/config.toml
+      sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+      
+      # Enable and start services
+      systemctl enable containerd
+      systemctl restart containerd
       systemctl enable docker
       systemctl daemon-reload
       systemctl restart docker
+      
+      # Enable Azure File Share mount service
+      systemctl enable azure-fileshare-mount.service
       
       # Add user to docker group
       usermod -aG docker ${admin_username}
@@ -193,43 +232,63 @@ write_files:
       systemctl enable kubelet
       
       echo "[$(date)] Kubernetes $K8S_VERSION installed successfully"
-      kubeadm version
 
-  # Join Kubernetes cluster script
+  # Kubernetes cluster join script
   - path: /usr/local/bin/join-k8s-cluster.sh
     permissions: '0755'
     content: |
       #!/bin/bash
       set -e
       
-      source /etc/kubernetes-config.conf
+      # Source Azure File Share configuration
       source /etc/azure-fileshare.conf
       
-      echo "[$(date)] Waiting for join command from master node..."
+      echo "[$(date)] Joining Kubernetes cluster..."
       
-      JOIN_CMD_FILE="$MOUNT_POINT/k8s-join-token/join-command.sh"
-      
-      # Wait for join command to be available (max 10 minutes)
-      TIMEOUT=600
+      # Wait for join command to be available
+      JOIN_COMMAND_FILE="$MOUNT_POINT/k8s-join-token/join-command.sh"
+      TIMEOUT=300  # 5 minutes timeout
       ELAPSED=0
-      while [ ! -f "$JOIN_CMD_FILE" ] && [ $ELAPSED -lt $TIMEOUT ]; do
-        echo "[$(date)] Waiting for join command... ($ELAPSED/$TIMEOUT seconds)"
+      
+      while [ ! -f "$JOIN_COMMAND_FILE" ] && [ $ELAPSED -lt $TIMEOUT ]; do
+        echo "[$(date)] Waiting for join command file... ($ELAPSED/$TIMEOUT seconds)"
         sleep 10
         ELAPSED=$((ELAPSED + 10))
       done
       
-      if [ ! -f "$JOIN_CMD_FILE" ]; then
-        echo "[$(date)] ERROR: Join command not found after $TIMEOUT seconds"
+      if [ ! -f "$JOIN_COMMAND_FILE" ]; then
+        echo "[$(date)] ERROR: Join command file not found after $TIMEOUT seconds"
         exit 1
       fi
       
-      echo "[$(date)] Join command found, joining cluster..."
-      
-      # Execute join command
-      chmod +x "$JOIN_CMD_FILE"
-      bash "$JOIN_CMD_FILE"
+      # Read and execute join command
+      echo "[$(date)] Found join command file, executing..."
+      chmod +x "$JOIN_COMMAND_FILE"
+      bash "$JOIN_COMMAND_FILE"
       
       echo "[$(date)] Successfully joined Kubernetes cluster"
+
+  # Install calicoctl binary script
+  - path: /usr/local/bin/install-calicoctl.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -e
+      
+      echo "[$(date)] Installing calicoctl..."
+      
+      CALICO_VERSION="v3.27.0"
+      CALICOCTL_URL="https://github.com/projectcalico/calico/releases/download/$${CALICO_VERSION}/calicoctl-linux-amd64"
+      
+      echo "[$(date)] Downloading calicoctl $${CALICO_VERSION}..."
+      curl -L -o /tmp/calicoctl "$${CALICOCTL_URL}"
+      chmod +x /tmp/calicoctl
+      mv /tmp/calicoctl /usr/local/bin/calicoctl
+      
+      echo "[$(date)] Verifying calicoctl installation..."
+      calicoctl version
+      
+      echo "[$(date)] calicoctl installed successfully"
 
   # Worker node bootstrap orchestration script
   - path: /usr/local/bin/bootstrap-worker.sh
@@ -262,6 +321,10 @@ write_files:
       echo "[$(date)] Step 4: Joining Kubernetes cluster..."
       /usr/local/bin/join-k8s-cluster.sh
       
+      # Step 5: Install calicoctl
+      echo "[$(date)] Step 5: Installing calicoctl..."
+      /usr/local/bin/install-calicoctl.sh
+      
       echo "=========================================="
       echo "[$(date)] Worker node bootstrap completed"
       echo "=========================================="
@@ -272,6 +335,9 @@ write_files:
 
 # Run commands
 runcmd:
+  # Fix file ownership (user is created by Azure before runcmd)
+  - chown -R ${admin_username}:${admin_username} /home/${admin_username}
+  
   # Set environment variables globally
   - echo "export ORGNM=${org_name}" >> /etc/profile.d/platform.sh
   - echo "export PLTNM=${platform_name}" >> /etc/profile.d/platform.sh
@@ -280,12 +346,6 @@ runcmd:
   - echo "export VM_ROLE=${vm_role}" >> /etc/profile.d/platform.sh
   - echo "export VM_COMPONENTS=${vm_components}" >> /etc/profile.d/platform.sh
   - chmod +x /etc/profile.d/platform.sh
-  
-  # Configure containerd
-  - mkdir -p /etc/containerd
-  - containerd config default | tee /etc/containerd/config.toml
-  - sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
-  - systemctl restart containerd
   
   # Run bootstrap script
   - /usr/local/bin/bootstrap-worker.sh

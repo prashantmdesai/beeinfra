@@ -40,9 +40,10 @@ resource "azurerm_public_ip" "main" {
 
 # Network Interface
 resource "azurerm_network_interface" "main" {
-  name                = "${var.vm_name}-nic"
-  location            = var.location
-  resource_group_name = var.resource_group_name
+  name                  = "${var.vm_name}-nic"
+  location              = var.location
+  resource_group_name   = var.resource_group_name
+  ip_forwarding_enabled = true
 
   ip_configuration {
     name                          = "internal"
@@ -126,9 +127,5 @@ resource "azurerm_linux_virtual_machine" "main" {
     }
   )
 
-  lifecycle {
-    ignore_changes = [
-      custom_data  # Don't recreate VM if cloud-init changes
-    ]
-  }
+  # Lifecycle block removed to allow cloud-init changes to trigger VM recreation
 }

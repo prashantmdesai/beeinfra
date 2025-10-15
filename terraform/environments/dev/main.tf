@@ -118,6 +118,7 @@ module "vm1_infr1" {
     vm_components        = var.vm1_components
     vm_private_ip        = var.vm1_private_ip
     admin_username       = var.admin_username
+    ssh_public_key       = module.ssh_key.public_key_openssh
     # Storage
     storage_account_name = module.storage.storage_account_name
     file_share_name      = module.storage.file_share_name
@@ -177,6 +178,7 @@ module "vm2_secu1" {
     vm_components        = var.vm2_components
     vm_private_ip        = var.vm2_private_ip
     admin_username       = var.admin_username
+    ssh_public_key       = module.ssh_key.public_key_openssh
     # Storage
     storage_account_name = module.storage.storage_account_name
     file_share_name      = module.storage.file_share_name
@@ -228,6 +230,7 @@ module "vm3_apps1" {
     vm_components        = var.vm3_components
     vm_private_ip        = var.vm3_private_ip
     admin_username       = var.admin_username
+    ssh_public_key       = module.ssh_key.public_key_openssh
     # Storage
     storage_account_name = module.storage.storage_account_name
     file_share_name      = module.storage.file_share_name
@@ -279,6 +282,7 @@ module "vm4_apps2" {
     vm_components        = var.vm4_components
     vm_private_ip        = var.vm4_private_ip
     admin_username       = var.admin_username
+    ssh_public_key       = module.ssh_key.public_key_openssh
     # Storage
     storage_account_name = module.storage.storage_account_name
     file_share_name      = module.storage.file_share_name
@@ -330,6 +334,7 @@ module "vm5_data1" {
     vm_components        = var.vm5_components
     vm_private_ip        = var.vm5_private_ip
     admin_username       = var.admin_username
+    ssh_public_key       = module.ssh_key.public_key_openssh
     # Storage
     storage_account_name = module.storage.storage_account_name
     file_share_name      = module.storage.file_share_name

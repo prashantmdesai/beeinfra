@@ -95,47 +95,17 @@ write_files:
       BEEUSER_UID=$(id -u ${admin_username})
       BEEUSER_GID=$(id -g ${admin_username})
       
-      # Create systemd mount unit (replaces fstab for better reliability)
-      MOUNT_UNIT_NAME=$(echo "$MOUNT_POINT" | sed 's|^/||;s|/|-|g').mount
-      cat > "/etc/systemd/system/$MOUNT_UNIT_NAME" <<EOF
-      [Unit]
-      Description=Azure File Share Mount for ${file_share_name}
-      After=network-online.target
-      Wants=network-online.target
+      # Add to fstab with systemd dependencies (simpler and more reliable than .mount units)
+      FSTAB_ENTRY="//$STORAGE_ACCOUNT_NAME.file.core.windows.net/$FILE_SHARE_NAME $MOUNT_POINT cifs nofail,x-systemd.after=network-online.target,x-systemd.requires=network-online.target,credentials=$CREDS_FILE,uid=$BEEUSER_UID,gid=$BEEUSER_GID,dir_mode=0775,file_mode=0664,serverino,nosharesock,actimeo=30,_netdev 0 0"
+      if ! grep -q "$MOUNT_POINT" /etc/fstab; then
+        echo "$FSTAB_ENTRY" >> /etc/fstab
+      fi
       
-      [Mount]
-      What=//$STORAGE_ACCOUNT_NAME.file.core.windows.net/$FILE_SHARE_NAME
-      Where=$MOUNT_POINT
-      Type=cifs
-      Options=credentials=$CREDS_FILE,uid=$BEEUSER_UID,gid=$BEEUSER_GID,dir_mode=0775,file_mode=0664,serverino,nosharesock,actimeo=30
-      TimeoutSec=30
+      # Mount now
+      mount -a
       
-      [Install]
-      WantedBy=multi-user.target
-      EOF
-      
-      # Enable and start mount
-      systemctl daemon-reload
-      systemctl enable "$MOUNT_UNIT_NAME"
-      systemctl start "$MOUNT_UNIT_NAME"
-      
-      echo "[$(date)] Azure File Share systemd mount unit created and enabled"
-      systemctl status "$MOUNT_UNIT_NAME" --no-pager
+      echo "[$(date)] Azure File Share mounted successfully"
       df -h "$MOUNT_POINT"
-
-  # Azure File Share automount unit for on-demand mounting
-  - path: /etc/systemd/system/mnt-${file_share_name}.automount
-    permissions: '0644'
-    content: |
-      [Unit]
-      Description=Automount Azure File Share ${file_share_name}
-      
-      [Automount]
-      Where=/mnt/${file_share_name}
-      TimeoutIdleSec=300
-      
-      [Install]
-      WantedBy=multi-user.target
 
   # Docker installation script
   - path: /usr/local/bin/install-docker.sh

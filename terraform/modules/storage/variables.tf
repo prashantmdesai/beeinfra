@@ -109,3 +109,17 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+# =============================================================================
+# BLOB STORAGE (BLBS) VARIABLES
+# =============================================================================
+
+variable "blob_container_name" {
+  description = "Name of the blob container for media files (BLBS component)"
+  type        = string
+  
+  validation {
+    condition     = can(regex("^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$", var.blob_container_name))
+    error_message = "Blob container name must be 3-63 characters, start/end with letter or number, contain only lowercase letters, numbers, and hyphens."
+  }
+}

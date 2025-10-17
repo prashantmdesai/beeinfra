@@ -70,6 +70,7 @@ module "storage" {
   storage_account_name = var.storage_account_name
   file_share_name      = var.file_share_name
   file_share_quota_gb  = var.file_share_quota_gb
+  blob_container_name  = var.blob_container_name
 
   subnet_ids = [module.networking.subnet_id]
   allowed_ip_ranges = [

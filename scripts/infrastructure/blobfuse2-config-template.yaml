@@ -1,0 +1,58 @@
+# BlobFuse2 Configuration for BLBS (Azure Blob Storage Media Files)
+# Configuration file: /etc/blobfuse/datsbeeuxdevstacct.cfg
+# Component: BLBS (Blob Storage for media files)
+# Purpose: Mount Azure Blob Storage as filesystem using BlobFuse2
+
+# Allow other users to access the mount
+allow-other: true
+
+# Logging configuration
+logging:
+  type: syslog
+  level: log_debug
+  file-path: /home/beeuser/plt/logs/blobfuse2.log
+
+# Component configuration - define what components to use
+components:
+  - libfuse
+  - block_cache
+  - attr_cache
+  - azstorage
+
+# libfuse options (FUSE filesystem layer)
+libfuse:
+  attribute-expiration-sec: 120
+  entry-expiration-sec: 120
+  negative-entry-expiration-sec: 240
+  
+# Block cache configuration (local caching for performance)
+block_cache:
+  path: /mnt/blobfusetmp
+  timeout-sec: 120
+  max-size-mb: 4096
+
+# Attribute cache configuration (metadata caching)
+attr_cache:
+  timeout-sec: 7200
+
+# Azure Storage configuration
+azstorage:
+  type: block
+  account-name: datsbeeuxdevstacct
+  container: dats-beeux-dev-blbs-media
+  # Authentication - use account key
+  account-key: <STORAGE_ACCOUNT_KEY>
+  mode: key
+  # Endpoint
+  endpoint: https://datsbeeuxdevstacct.blob.core.windows.net
+  # Performance options
+  max-retries: 3
+  max-timeout: 900
+  back-off-time: 4
+  max-retry-delay: 60
+  # Virtual directory mode (flattens blob hierarchy)
+  virtual-directory: true
+  # Subdirectory within container (empty = root)
+  subdirectory: ""
+  # Disable symlinks (not supported in blob storage)
+  disable-symlinks: true

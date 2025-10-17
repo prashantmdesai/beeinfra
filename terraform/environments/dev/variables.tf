@@ -82,6 +82,11 @@ variable "file_share_quota_gb" {
   default     = 100
 }
 
+variable "blob_container_name" {
+  description = "Blob container name for media files (BLBS component)"
+  type        = string
+}
+
 # -----------------------------------------------------------------------------
 # VM COMMON VARIABLES
 # -----------------------------------------------------------------------------

@@ -61,3 +61,33 @@ output "mount_path" {
   description = "Recommended mount path on VMs"
   value       = "/mnt/${azurerm_storage_share.main.name}"
 }
+
+# =============================================================================
+# BLOB STORAGE (BLBS) OUTPUTS
+# =============================================================================
+
+output "blob_container_name" {
+  description = "The name of the blob container"
+  value       = azurerm_storage_container.blbs.name
+}
+
+output "blob_container_id" {
+  description = "The ID of the blob container"
+  value       = azurerm_storage_container.blbs.id
+}
+
+output "primary_blob_endpoint" {
+  description = "The primary blob endpoint for the storage account"
+  value       = azurerm_storage_account.main.primary_blob_endpoint
+}
+
+output "blob_mount_path" {
+  description = "Recommended mount path for blob container on VMs"
+  value       = "/mnt/${azurerm_storage_container.blbs.name}"
+}
+
+output "blob_connection_string" {
+  description = "Connection string for blob storage (used by BlobFuse)"
+  value       = "DefaultEndpointsProtocol=https;AccountName=${azurerm_storage_account.main.name};AccountKey=${azurerm_storage_account.main.primary_access_key};EndpointSuffix=core.windows.net"
+  sensitive   = true
+}

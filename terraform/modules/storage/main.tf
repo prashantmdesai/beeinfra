@@ -75,3 +75,55 @@ resource "azurerm_storage_share_directory" "app_data" {
   name             = "app-data"
   storage_share_id = azurerm_storage_share.main.id
 }
+
+# =============================================================================
+# BLOB STORAGE (BLBS) - For Media Files
+# =============================================================================
+# Blob Container for media files used in the application
+# Mounted via BlobFuse on all VMs for unified access
+
+resource "azurerm_storage_container" "blbs" {
+  name                  = var.blob_container_name
+  storage_account_name  = azurerm_storage_account.main.name
+  container_access_type = "private"
+
+  metadata = {
+    environment = var.env_name
+    purpose     = "Media files storage"
+    component   = "BLBS"
+  }
+}
+
+# Create placeholder directories in blob container using empty blobs
+# This helps organize media files by type
+resource "azurerm_storage_blob" "blbs_images_placeholder" {
+  name                   = "images/.placeholder"
+  storage_account_name   = azurerm_storage_account.main.name
+  storage_container_name = azurerm_storage_container.blbs.name
+  type                   = "Block"
+  source_content         = "This directory stores image files"
+}
+
+resource "azurerm_storage_blob" "blbs_videos_placeholder" {
+  name                   = "videos/.placeholder"
+  storage_account_name   = azurerm_storage_account.main.name
+  storage_container_name = azurerm_storage_container.blbs.name
+  type                   = "Block"
+  source_content         = "This directory stores video files"
+}
+
+resource "azurerm_storage_blob" "blbs_audio_placeholder" {
+  name                   = "audio/.placeholder"
+  storage_account_name   = azurerm_storage_account.main.name
+  storage_container_name = azurerm_storage_container.blbs.name
+  type                   = "Block"
+  source_content         = "This directory stores audio files"
+}
+
+resource "azurerm_storage_blob" "blbs_documents_placeholder" {
+  name                   = "documents/.placeholder"
+  storage_account_name   = azurerm_storage_account.main.name
+  storage_container_name = azurerm_storage_container.blbs.name
+  type                   = "Block"
+  source_content         = "This directory stores document files"
+}

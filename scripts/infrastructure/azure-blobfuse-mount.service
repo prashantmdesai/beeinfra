@@ -1,0 +1,66 @@
+[Unit]
+Description=Azure Blob Storage (BLBS) Mount via BlobFuse2
+Documentation=https://github.com/Azure/azure-storage-fuse
+After=network-online.target
+Wants=network-online.target
+Before=docker.service kubelet.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=root
+Group=root
+
+# Step 1: Create mount point directory
+ExecStartPre=/bin/bash -c 'echo "[BLBS-MOUNT] Step 1: Creating mount point directory..." && mkdir -p /mnt/dats-beeux-dev-blbs-media && echo "[BLBS-MOUNT-OK] Mount point created"'
+
+# Step 2: Set ownership to beeuser
+ExecStartPre=/bin/bash -c 'echo "[BLBS-MOUNT] Step 2: Setting ownership to beeuser..." && chown beeuser:beeuser /mnt/dats-beeux-dev-blbs-media && echo "[BLBS-MOUNT-OK] Ownership set"'
+
+# Step 3: Set permissions
+ExecStartPre=/bin/bash -c 'echo "[BLBS-MOUNT] Step 3: Setting permissions..." && chmod 775 /mnt/dats-beeux-dev-blbs-media && echo "[BLBS-MOUNT-OK] Permissions set"'
+
+# Step 4: Create BlobFuse cache directory
+ExecStartPre=/bin/bash -c 'echo "[BLBS-MOUNT] Step 4: Creating BlobFuse cache directory..." && mkdir -p /mnt/blobfusetmp && chown beeuser:beeuser /mnt/blobfusetmp && chmod 770 /mnt/blobfusetmp && echo "[BLBS-MOUNT-OK] Cache directory created"'
+
+# Step 5: Check if credentials file exists
+ExecStartPre=/bin/bash -c 'echo "[BLBS-MOUNT] Step 5: Checking credentials file..." && if [ -f /etc/blobfuse/datsbeeuxdevstacct.cfg ]; then echo "[BLBS-MOUNT-OK] Credentials file exists"; else echo "[BLBS-MOUNT-FAILED] Credentials file not found"; exit 1; fi'
+
+# Step 6: Unmount if already mounted (cleanup)
+ExecStartPre=-/bin/bash -c 'echo "[BLBS-MOUNT] Step 6: Cleaning up stale mounts..." && if mountpoint -q /mnt/dats-beeux-dev-blbs-media; then fusermount -u /mnt/dats-beeux-dev-blbs-media 2>/dev/null || umount -f /mnt/dats-beeux-dev-blbs-media 2>/dev/null; fi && echo "[BLBS-MOUNT-OK] Cleanup completed"'
+
+# Step 7: Check if BlobFuse2 is installed
+ExecStartPre=/bin/bash -c 'echo "[BLBS-MOUNT] Step 7: Checking BlobFuse2 installation..." && if command -v blobfuse2 > /dev/null; then echo "[BLBS-MOUNT-OK] BlobFuse2 installed: $(blobfuse2 --version)"; else echo "[BLBS-MOUNT-FAILED] BlobFuse2 not installed"; exit 1; fi'
+
+# Main mount command using BlobFuse2
+ExecStart=/bin/bash -c 'echo "[BLBS-MOUNT] Mounting blob container..." && su - beeuser -c "blobfuse2 mount /mnt/dats-beeux-dev-blbs-media --config-file=/etc/blobfuse/datsbeeuxdevstacct.cfg --log-level=log_debug --log-file-path=/home/beeuser/plt/logs/blobfuse2-mount.log" && echo "[BLBS-MOUNT-OK] Mount command executed"'
+
+# Verification Step 1: Check if mountpoint
+ExecStartPost=/bin/bash -c 'echo "[BLBS-VERIFY] Step 1: Checking mountpoint status..." && if mountpoint -q /mnt/dats-beeux-dev-blbs-media; then echo "[BLBS-VERIFY-OK] Directory is a mountpoint"; else echo "[BLBS-VERIFY-FAILED] Directory is NOT a mountpoint"; exit 1; fi'
+
+# Verification Step 2: Check fuse mount
+ExecStartPost=/bin/bash -c 'echo "[BLBS-VERIFY] Step 2: Checking fuse mount..." && if mount | grep -q "/mnt/dats-beeux-dev-blbs-media.*fuse"; then echo "[BLBS-VERIFY-OK] BlobFuse mount confirmed"; else echo "[BLBS-VERIFY-WARN] BlobFuse mount not found in mount table"; fi'
+
+# Verification Step 3: Test directory listing
+ExecStartPost=/bin/bash -c 'echo "[BLBS-VERIFY] Step 3: Testing directory access..." && if ls /mnt/dats-beeux-dev-blbs-media > /dev/null 2>&1; then ITEM_COUNT=$(ls -1 /mnt/dats-beeux-dev-blbs-media | wc -l); echo "[BLBS-VERIFY-OK] Directory accessible, $ITEM_COUNT items found"; else echo "[BLBS-VERIFY-FAILED] Cannot access mounted directory"; exit 1; fi'
+
+# Verification Step 4: Check ownership
+ExecStartPost=/bin/bash -c 'echo "[BLBS-VERIFY] Step 4: Checking ownership..." && OWNER=$(stat -c "%U:%G" /mnt/dats-beeux-dev-blbs-media); echo "[BLBS-VERIFY-OK] Ownership: $OWNER"'
+
+# Unmount on stop
+ExecStop=/bin/bash -c 'echo "[BLBS-UNMOUNT] Unmounting blob container..." && fusermount -u /mnt/dats-beeux-dev-blbs-media 2>/dev/null || umount -f /mnt/dats-beeux-dev-blbs-media 2>/dev/null; echo "[BLBS-UNMOUNT-OK] Unmount completed"'
+
+# Restart policy
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=300
+
+# Security
+PrivateTmp=yes
+
+# Logging
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
